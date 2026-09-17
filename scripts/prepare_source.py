@@ -11,7 +11,7 @@ s = gradle.read_text()
 s = s.replace('applicationId = "rocks.gorjan.gokixp"', 'applicationId = "com.winsung.launcher"')
 s = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 1', s)
 s = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.0-winsung"', s)
-# Remove Google account/Drive client dependencies.
+# Remove Google Drive/account client dependencies only. Keep Gson because the launcher itself uses it locally.
 s = re.sub(r'\n\s*// Google Drive API\n.*?\n\s*testImplementation', '\n\n    testImplementation', s, flags=re.S)
 gradle.write_text(s)
 
@@ -54,7 +54,8 @@ tm.write_text(s)
 ma = main / 'java/rocks/gorjan/gokixp/MainActivity.kt'
 s = ma.read_text()
 s = re.sub(r'^import rocks\.gorjan\.gokixp\.apps\.regedit\.GoogleDriveHelper\n', '', s, flags=re.M)
-s = re.sub(r'^import com\.google\..*\n', '', s, flags=re.M)
+# Remove Google Play Services auth imports, but DO NOT remove com.google.gson.* used by local launcher state.
+s = re.sub(r'^import com\.google\.android\.gms\..*\n', '', s, flags=re.M)
 s = re.sub(r'\n\s*private lateinit var googleDriveHelper: GoogleDriveHelper\n', '\n', s)
 s = re.sub(r'\n\s*// Google Sign-In launcher for Google Drive\n\s*private val googleSignInLauncher = registerForActivityResult\(ActivityResultContracts\.StartActivityForResult\(\)\) \{ result ->.*?\n\s*\}\n\n\s*// Sound system', '\n\n    // Sound system', s, flags=re.S)
 s = re.sub(r'\n\s*// Auto-sync for Google Drive\n\s*private val autoSyncHandler.*?private var registryEditorAppInstance: RegistryEditorApp\? = null\n', '\n    private var registryEditorAppInstance: RegistryEditorApp? = null\n', s, flags=re.S)
@@ -64,6 +65,9 @@ s = re.sub(r'\n\s*onImportFromGoogleDrive = \{ importFromGoogleDrive\(\) \},', '
 s = re.sub(r'\n\s*onAutoSyncChanged = \{ enabled -> handleAutoSyncChanged\(enabled\) \},', '', s)
 s = re.sub(r'\n\s*getLastSyncTime = \{ preferences\.getSafeLong\(KEY_LAST_GOOGLE_DRIVE_SYNC, 0L\) \}', '', s)
 s = re.sub(r'\n\s*private fun exportToGoogleDrive\(prefs: android\.content\.SharedPreferences\) \{.*?\n\s*private fun showDialerDialog\(\) \{', '\n\n    private fun showDialerDialog() {', s, flags=re.S)
+# Remove any remaining auto-sync call sites after the cloud functions were deleted.
+s = re.sub(r'^\s*stopAutoSync\(\)\s*$', '        // WINSUNG private build: no cloud auto-sync', s, flags=re.M)
+s = re.sub(r'^\s*startAutoSync\(\)\s*$', '            // WINSUNG private build: no cloud auto-sync', s, flags=re.M)
 # Remote updater disabled in private build.
 s = s.replace('        startUpdateChecker()', '        // WINSUNG private build: remote updater removed')
 s = s.replace('        stopUpdateChecker()', '        // WINSUNG private build: no updater service')
@@ -75,13 +79,18 @@ s = re.sub(r'private fun checkForUpdates\(showCheckingNotification: Boolean = fa
     private fun stopUpdateChecker() { }''', s, flags=re.S)
 # No migration/export to the author's companion launcher.
 s = s.replace('wasWindowsPhoneUser = WP8Migration.captureIfNeeded(this)', 'wasWindowsPhoneUser = false')
-# Factory default classic teal desktop.
+# Make every legacy fallback default Classic too.
+s = s.replace('getString("selected_theme", "Windows XP") ?: "Windows XP"', 'getString("selected_theme", "Windows Classic") ?: "Windows Classic"')
+# Factory default classic teal desktop. Use the launcher's real per-theme wallpaper keys.
 needle = 'desktopContainer = findViewById(R.id.desktop_icons_container)'
 insert = '''desktopContainer = findViewById(R.id.desktop_icons_container)
 
-        // WINSUNG: classic teal is the factory default for Windows 98.
-        if (themeManager.getSelectedTheme() is AppTheme.WindowsClassic && !prefs.contains(KEY_WALLPAPER)) {
-            findViewById<View>(R.id.main_background).setBackgroundColor(android.graphics.Color.rgb(0, 128, 128))
+        // WINSUNG: classic teal is the factory default for Windows 98 when no wallpaper has been chosen.
+        if (themeManager.getSelectedTheme() is AppTheme.WindowsClassic) {
+            val wallpaperKeys = getCurrentThemeWallpaperStorageKeys()
+            if (!prefs.contains(wallpaperKeys.first) && !prefs.contains(wallpaperKeys.second)) {
+                findViewById<View>(R.id.main_background).setBackgroundColor(android.graphics.Color.rgb(0, 128, 128))
+            }
         }'''
 if needle in s:
     s = s.replace(needle, insert, 1)
