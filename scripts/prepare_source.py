@@ -81,14 +81,13 @@ s = re.sub(r'private fun checkForUpdates\(showCheckingNotification: Boolean = fa
 s = s.replace('wasWindowsPhoneUser = WP8Migration.captureIfNeeded(this)', 'wasWindowsPhoneUser = false')
 # Make every legacy fallback default Classic too.
 s = s.replace('getString("selected_theme", "Windows XP") ?: "Windows XP"', 'getString("selected_theme", "Windows Classic") ?: "Windows Classic"')
-# Factory default classic teal desktop. Use the launcher's real per-theme wallpaper keys.
+# Factory default classic teal desktop. Use Classic's actual wallpaper preference keys.
 needle = 'desktopContainer = findViewById(R.id.desktop_icons_container)'
 insert = '''desktopContainer = findViewById(R.id.desktop_icons_container)
 
         // WINSUNG: classic teal is the factory default for Windows 98 when no wallpaper has been chosen.
         if (themeManager.getSelectedTheme() is AppTheme.WindowsClassic) {
-            val wallpaperKeys = getCurrentThemeWallpaperStorageKeys()
-            if (!prefs.contains(wallpaperKeys.first) && !prefs.contains(wallpaperKeys.second)) {
+            if (!prefs.contains(KEY_WALLPAPER_CLASSIC_PATH) && !prefs.contains(KEY_WALLPAPER_CLASSIC_URI)) {
                 findViewById<View>(R.id.main_background).setBackgroundColor(android.graphics.Color.rgb(0, 128, 128))
             }
         }'''
