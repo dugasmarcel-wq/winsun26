@@ -32,6 +32,9 @@ jobs:
       - name: Harden generated native source
         run: python3 scripts/harden_generated_source.py
 
+      - name: Remove legacy media/storage permission callbacks
+        run: python3 scripts/remove_legacy_media_permissions.py
+
       - name: Apply visual-first Win98 reconstruction
         run: python3 scripts/apply_visual_rebuild.py
 
