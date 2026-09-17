@@ -29,14 +29,11 @@ jobs:
           python3 -m py_compile /tmp/add_masterpiece.py
           python3 /tmp/add_masterpiece.py
 
-      - name: Dump generated WINSUNG controller for reconstruction
-        run: |
-          echo '=== WINSUNG98 CONTROLLER BEGIN ==='
-          cat upstream/app/src/main/java/rocks/gorjan/gokixp/winsung/Winsung98Controller.kt
-          echo '=== WINSUNG98 CONTROLLER END ==='
-
       - name: Apply post-masterpiece privacy hardening
         run: python3 scripts/post_masterpiece_hardening.py
+
+      - name: Apply visual-first Win98 reconstruction
+        run: python3 scripts/apply_visual_rebuild.py
 
       - name: Audit master specification markers
         run: python3 scripts/spec_audit.py
@@ -69,14 +66,14 @@ jobs:
       - name: Rename APK
         run: |
           mkdir -p output
-          cp upstream/app/build/outputs/apk/debug/app-debug.apk output/WINSUNG98-MASTERPIECE-debug.apk
-          sha256sum output/WINSUNG98-MASTERPIECE-debug.apk | tee output/SHA256.txt
+          cp upstream/app/build/outputs/apk/debug/app-debug.apk output/WINSUNG98-VISUAL-REBUILD-debug.apk
+          sha256sum output/WINSUNG98-VISUAL-REBUILD-debug.apk | tee output/SHA256.txt
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: WINSUNG98-MASTERPIECE-APK
+          name: WINSUNG98-VISUAL-REBUILD-APK
           path: |
-            output/WINSUNG98-MASTERPIECE-debug.apk
+            output/WINSUNG98-VISUAL-REBUILD-debug.apk
             output/SHA256.txt
           if-no-files-found: error
