@@ -2,9 +2,66 @@ name: Build WINSUNG APK
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+
     steps:
-      - run: echo "WINSUNG masterpiece payload is being staged"
+      - name: Checkout WINSUNG build repo
+        uses: actions/checkout@v4
+
+      - name: Checkout Jovanovski Windows Launcher v2.1.0
+        run: |
+          git clone --depth 1 --branch v2.1.0 https://github.com/jovanovski/windowslauncher.git upstream
+
+      - name: Apply privacy baseline
+        run: python3 scripts/prepare_source.py
+
+      - name: Apply complete WINSUNG masterpiece modifications
+        run: |
+          base64 -d payload/masterpiece.py.gz.b64 | gzip -d > /tmp/add_masterpiece.py
+          python3 /tmp/add_masterpiece.py
+
+      - name: Privacy audit source tree
+        run: |
+          echo "Manifest permissions:"
+          grep -n "uses-permission" upstream/app/src/main/AndroidManifest.xml || true
+          echo "Blocked inherited endpoints/components (must be empty):"
+          if grep -R -n -E "api\.github\.com/repos/jovanovski|open-meteo|getaircare|gorjan\.rocks|tetyys\.com|GoogleDriveHelper|GoogleSignIn|LockScreenAccessibilityService" upstream/app/src/main/java upstream/app/src/main/AndroidManifest.xml; then
+            echo "Privacy audit failed: inherited endpoint/component remains"
+            exit 1
+          fi
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: upstream/**/*.gradle*
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x upstream/gradlew
+
+      - name: Build installable debug APK
+        working-directory: upstream
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Rename APK
+        run: |
+          mkdir -p output
+          cp upstream/app/build/outputs/apk/debug/app-debug.apk output/WINSUNG98-MASTERPIECE-debug.apk
+          sha256sum output/WINSUNG98-MASTERPIECE-debug.apk | tee output/SHA256.txt
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WINSUNG98-MASTERPIECE-APK
+          path: |
+            output/WINSUNG98-MASTERPIECE-debug.apk
+            output/SHA256.txt
+          if-no-files-found: error
