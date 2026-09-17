@@ -23,7 +23,8 @@ jobs:
 
       - name: Apply complete WINSUNG masterpiece modifications
         run: |
-          base64 -d payload/masterpiece.py.gz.b64 | gzip -d > /tmp/add_masterpiece.py
+          cat payload/mp0.b64 payload/mp1.b64 payload/mp2.b64 payload/mp3.b64 | base64 -d | gzip -d > /tmp/add_masterpiece.py
+          python3 -m py_compile /tmp/add_masterpiece.py
           python3 /tmp/add_masterpiece.py
 
       - name: Privacy audit source tree
