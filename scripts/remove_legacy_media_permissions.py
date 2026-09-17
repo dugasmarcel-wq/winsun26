@@ -4,28 +4,45 @@ import re
 path = Path("upstream/app/src/main/java/rocks/gorjan/gokixp/MainActivity.kt")
 s = path.read_text()
 
-# Winamp/WMP's inherited MediaStore library browsers asked for broad media/storage
-# permissions. WINSUNG's requested media surface is the active Android media session
-# bridge plus explicit document pickers, so these legacy permission callbacks are disabled.
+# Replace only the permission callback arguments inside the two media-player
+# constructors. Do not span across functions: showWinamp/showWmp and their window
+# plumbing are still native launcher features used by Explorer and Desktop 2.
+winamp_pattern = re.compile(
+    r'(val\s+winampApp\s*=\s*rocks\.gorjan\.gokixp\.apps\.winamp\.WinampApp\(\s*'
+    r'context\s*=\s*this,\s*)'
+    r'onRequestPermissions\s*=\s*\{.*?\},\s*'
+    r'hasAudioPermission\s*=\s*\{.*?\},\s*'
+    r'(onShowRenameDialog\s*=)',
+    re.S,
+)
+s, winamp_count = winamp_pattern.subn(
+    r'\1onRequestPermissions = { },\n            hasAudioPermission = { false },\n            \2',
+    s,
+    count=1,
+)
 
-def replace_permission_pair(text: str, permission_name: str) -> tuple[str, int]:
-    pattern = re.compile(
-        rf'onRequestPermissions\s*=\s*\{{.*?\}},\s*'
-        rf'{re.escape(permission_name)}\s*=\s*\{{.*?\}},',
-        re.S,
-    )
-    replacement = f'onRequestPermissions = {{ }},\n            {permission_name} = {{ false }},'
-    return pattern.subn(replacement, text, count=1)
+wmp_pattern = re.compile(
+    r'(val\s+wmpApp\s*=\s*rocks\.gorjan\.gokixp\.apps\.wmp\.WmpApp\(\s*'
+    r'context\s*=\s*this,\s*)'
+    r'onRequestPermissions\s*=\s*\{.*?\},\s*'
+    r'hasVideoPermission\s*=\s*\{.*?\},\s*'
+    r'canRequestPermissions\s*=\s*\{.*?\},\s*'
+    r'onShowPermissionNotification\s*=\s*\{.*?\},\s*'
+    r'(fileToPlay\s*=)',
+    re.S,
+)
+s, wmp_count = wmp_pattern.subn(
+    r'\1onRequestPermissions = { },\n            hasVideoPermission = { false },\n            canRequestPermissions = { false },\n            onShowPermissionNotification = { },\n            \2',
+    s,
+    count=1,
+)
 
-s, audio_count = replace_permission_pair(s, "hasAudioPermission")
-s, video_count = replace_permission_pair(s, "hasVideoPermission")
+if winamp_count != 1:
+    raise SystemExit(f"Could not safely patch Winamp permission callbacks (count={winamp_count})")
+if wmp_count != 1:
+    raise SystemExit(f"Could not safely patch WMP permission callbacks (count={wmp_count})")
 
-if audio_count != 1:
-    raise SystemExit(f"Could not replace Winamp audio permission callbacks (count={audio_count})")
-if video_count != 1:
-    raise SystemExit(f"Could not replace WMP video permission callbacks (count={video_count})")
-
-# These result branches are now unreachable and should not imply WINSUNG requests them.
+# Permission-result branches are unreachable after the callbacks above are disabled.
 s = re.sub(
     r'\n\s*AUDIO_PERMISSION_REQUEST_CODE\s*->\s*if\b.*?\n\s*VIDEO_PERMISSION_REQUEST_CODE\s*->',
     '\n            VIDEO_PERMISSION_REQUEST_CODE ->',
@@ -41,10 +58,9 @@ s = re.sub(
     flags=re.S,
 )
 
-# Any residual compatibility branch that mentioned an old Android storage/media
-# permission is converted to an ungrantable private sentinel. It cannot trigger a
-# system permission dialog and keeps old helper signatures compilable until the
-# unused Winamp/WMP library-browser code is removed completely.
+# If dormant compatibility helpers still contain an old permission constant,
+# convert it to an app-private sentinel. This preserves their String-typed call
+# sites but can never request an Android media/storage permission.
 for permission in (
     "READ_EXTERNAL_STORAGE",
     "WRITE_EXTERNAL_STORAGE",
@@ -57,18 +73,25 @@ for permission in (
         f"android.Manifest.permission.{permission}",
         '"winsung.retired.NO_MEDIA_STORAGE_ACCESS"',
     )
-    s = s.replace(permission, "retired_media_storage_permission")
+    s = s.replace(f"Manifest.permission.{permission}", '"winsung.retired.NO_MEDIA_STORAGE_ACCESS"')
 
-s = s.replace(
-    "Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION",
-    "Settings.ACTION_APPLICATION_DETAILS_SETTINGS",
-)
-s = s.replace(
-    "Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION",
-    "Settings.ACTION_APPLICATION_DETAILS_SETTINGS",
-)
+s = s.replace("Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION", "Settings.ACTION_APPLICATION_DETAILS_SETTINGS")
+s = s.replace("Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION", "Settings.ACTION_APPLICATION_DETAILS_SETTINGS")
 s = s.replace("android.os.Environment.isExternalStorageManager()", "false")
 s = s.replace("Environment.isExternalStorageManager()", "false")
+
+# Structural invariants: both native player entry points must survive this pass.
+for required in (
+    "private fun showWinampDialog",
+    "private fun createAndShowWinampDialog",
+    "fun openWmp",
+    "private fun showWmpDialog",
+    "private fun createAndShowWmpDialog",
+    "val winampApp = rocks.gorjan.gokixp.apps.winamp.WinampApp",
+    "val wmpApp = rocks.gorjan.gokixp.apps.wmp.WmpApp",
+):
+    if required not in s:
+        raise SystemExit(f"Media cleanup damaged native player structure: missing {required}")
 
 path.write_text(s)
 
@@ -86,4 +109,4 @@ for token in (
     if token in s:
         raise SystemExit(f"Legacy broad media/storage token still present in MainActivity: {token}")
 
-print("Legacy Winamp/WMP broad media permission callbacks removed")
+print("Legacy Winamp/WMP broad media permission callbacks removed without altering player windows")
