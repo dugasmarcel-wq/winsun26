@@ -3,17 +3,18 @@ import re
 
 root = Path("upstream")
 main = root / "app/src/main"
-main_activity = main / "java/rocks/gorjan/gokixp/MainActivity.kt"
-theme_manager = main / "java/rocks/gorjan/gokixp/theme/ThemeManager.kt"
+java_root = main / "java/rocks/gorjan/gokixp"
+main_activity = java_root / "MainActivity.kt"
+theme_manager = java_root / "theme/ThemeManager.kt"
 
-# ---------------------------------------------------------------------------
-# Theme completion
-# ---------------------------------------------------------------------------
-# The masterpiece pass wires Windows 7 through the launcher's resource maps,
-# but v2.1.0 has no Windows7 AppTheme object. Define it as its own persisted
-# theme. The generated resource mappings intentionally use Vista resources as
-# the temporary compatibility fallback where dedicated Windows 7 assets are
-# not present yet.
+# Remove the retired Windows Phone handoff implementation entirely.
+for retired in (java_root / "WP8Migration.kt", java_root / "WP8MigrationProvider.kt"):
+    if retired.exists():
+        retired.unlink()
+
+# Complete Windows 7 as a separate persisted AppTheme. The masterpiece pass
+# already wires Windows 7 through resource selection, using Vista resources as
+# a temporary compatibility fallback where dedicated Windows 7 assets are absent.
 t = theme_manager.read_text()
 if "object Windows7 : AppTheme()" not in t:
     vista_object = '''    object WindowsVista : AppTheme() {
@@ -32,8 +33,11 @@ if "object Windows7 : AppTheme()" not in t:
     t = t.replace(vista_object, windows7_object, 1)
 
 if '"Windows 7" -> Windows7' not in t:
-    t = t.replace('            "Windows Vista" -> WindowsVista\n',
-                  '            "Windows Vista" -> WindowsVista\n            "Windows 7" -> Windows7\n', 1)
+    t = t.replace(
+        '            "Windows Vista" -> WindowsVista\n',
+        '            "Windows Vista" -> WindowsVista\n            "Windows 7" -> Windows7\n',
+        1,
+    )
 
 all_match = re.search(r'fun all\(\): List<AppTheme> = listOf\(([^)]*)\)', t)
 if all_match and "Windows7" not in all_match.group(1):
@@ -43,12 +47,9 @@ if all_match and "Windows7" not in all_match.group(1):
 
 theme_manager.write_text(t)
 
-# ---------------------------------------------------------------------------
-# MainActivity privacy and retired-feature cleanup
-# ---------------------------------------------------------------------------
 s = main_activity.read_text()
 
-# Do not retain original-developer destinations. Keep behavior compile-safe and local.
+# Remove original-developer destinations.
 for inherited_url in (
     "https://gorjan.rocks/clients/marti/",
     "https://gorjan.rocks",
@@ -56,19 +57,19 @@ for inherited_url in (
 ):
     s = s.replace(inherited_url, "about:blank")
 
-# The inherited AQI/location backend was deliberately removed. Any UI remnant
-# that still references the old constant gets a non-network destination rather
-# than restoring AirCare or location access.
+# AirCare/location was intentionally removed. Keep any surviving UI reference
+# local instead of restoring the inherited AQI backend.
 s = s.replace("AIRCARE_URL", '"about:blank"')
 
-# Remove the old Windows Phone migration notice path. WINSUNG does not migrate
-# data to another launcher and does not hand users to a companion-app URL.
+# Remove the Windows Phone migration notice from first-run logic.
 s = re.sub(
     r'\n\s*if \(wasWindowsPhoneUser && !prefs\.getBoolean\(WP8Migration\.KEY_NOTICE_SHOWN, false\)\) \{.*?\n\s*return\n\s*\}\n',
     '\n',
     s,
     flags=re.S,
 )
+
+# Remove the companion-launcher notice and keyboard probe methods.
 s = re.sub(
     r'\n\s*private fun showWindowsPhoneMovedNotice\(\) \{.*?\n\s*private fun showWelcomeToWindows\(',
     '\n\n    private fun showWelcomeToWindows(',
@@ -76,9 +77,11 @@ s = re.sub(
     flags=re.S,
 )
 
-# Replace inherited developer/update copy with WINSUNG-owned local copy. Use a
-# callable replacement so the Kotlin source receives escaped \\n sequences rather
-# than literal line breaks inside a quoted string.
+# Remove a leftover companion URL declaration if the upstream source still has one.
+s = re.sub(r'^\s*(?:private\s+)?(?:const\s+)?val\s+WINDOWS_PHONE_LAUNCHER_URL\s*=.*\n', '', s, flags=re.M)
+
+# Replace inherited developer/update copy. A callable replacement preserves the
+# backslash-n escapes required inside a normal Kotlin string literal.
 welcome_pattern = r'^\s*val welcomeMessage = "Windows has updated to version \$versionName,.*?"$'
 welcome_replacement = (
     '        val welcomeMessage = "Welcome to WINSUNG $versionName.\\n\\n'
@@ -89,7 +92,7 @@ welcome_replacement = (
 )
 s = re.sub(welcome_pattern, lambda _m: welcome_replacement, s, flags=re.M)
 
-# Disable inherited remote changelog retrieval while preserving the existing UI callback contract.
+# Disable inherited remote changelog retrieval while preserving the UI callback.
 s = re.sub(
     r'\n\s*// Function to format changelog text\n\s*fun fetchChangeLogFromGitHub\(callback: \(String\) -> Unit\) \{.*?\n\s*\}\n\n\s*// Set welcome message with automatic link detection',
     '\n\n        fun fetchChangeLogFromGitHub(callback: (String) -> Unit) {\n            callback("Remote changelog checks are disabled in WINSUNG.")\n        }\n\n        // Set welcome message with automatic link detection',
@@ -97,13 +100,10 @@ s = re.sub(
     flags=re.S,
 )
 
-# Defense in depth: inherited update/release endpoints must never survive source generation.
 s = s.replace("https://api.github.com/repos/jovanovski/windowslauncher/releases", "about:blank")
 s = s.replace("https://github.com/jovanovski/windowslauncher/releases", "about:blank")
-
 main_activity.write_text(s)
 
-# Fail locally if a blocked inherited destination/component survived the transformations.
 blocked = (
     "api.github.com/repos/jovanovski",
     "open-meteo",
