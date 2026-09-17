@@ -62,8 +62,6 @@ for label, needles in checks.items():
         print(f"MISS | {label}")
         missing.append(label)
 
-# Architecture/privacy invariants that must be true, not merely reported.
-all_text = "\n".join(corpus.values())
 forbidden = {
     "QUERY_ALL_PACKAGES": "broad installed-app visibility",
     "MANAGE_EXTERNAL_STORAGE": "broad storage access",
@@ -83,8 +81,28 @@ forbidden = {
 
 violations = []
 for token, label in forbidden.items():
-    if token in all_text:
-        violations.append(f"{label}: {token}")
+    locations = []
+    for path, text in corpus.items():
+        if token not in text:
+            continue
+        for line_no, line_text in enumerate(text.splitlines(), start=1):
+            if token in line_text:
+                locations.append((path.relative_to(root), line_no, line_text.strip()))
+                if len(locations) >= 6:
+                    break
+        if len(locations) >= 6:
+            break
+    if locations:
+        violations.append((label, token, locations))
+
+print("\n=== AOL CONTROLLER DIAGNOSTIC ===")
+controller_path = root / "java/rocks/gorjan/gokixp/winsung/Winsung98Controller.kt"
+if controller_path.exists():
+    controller_lines = controller_path.read_text(errors="ignore").splitlines()
+    for line_no in range(145, min(290, len(controller_lines)) + 1):
+        print(f"{line_no:04d}: {controller_lines[line_no - 1]}")
+else:
+    print("Winsung98Controller.kt not found")
 
 print("\nSummary:")
 print(f"  Feature checks present: {len(checks) - len(missing)}/{len(checks)}")
@@ -95,8 +113,10 @@ else:
 
 if violations:
     print("  FORBIDDEN REFERENCES FOUND:")
-    for item in violations:
-        print("   - " + item)
+    for label, token, locations in violations:
+        print(f"   - {label}: {token}")
+        for path, line_no, line_text in locations:
+            print(f"       {path}:{line_no}: {line_text}")
     raise SystemExit(1)
 
 print("  Privacy/architecture forbidden-reference audit: PASS")
