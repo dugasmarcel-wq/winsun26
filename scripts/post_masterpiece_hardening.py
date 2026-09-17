@@ -61,10 +61,11 @@ for inherited_url in (
 # local instead of restoring the inherited AQI backend.
 s = s.replace("AIRCARE_URL", '"about:blank"')
 
-# Remove the Windows Phone migration notice from first-run logic.
+# Remove the obsolete Windows Phone first-run branch by anchoring it between
+# stable surrounding statements instead of depending on its internal formatting.
 s = re.sub(
-    r'\n\s*if \(wasWindowsPhoneUser && !prefs\.getBoolean\(WP8Migration\.KEY_NOTICE_SHOWN, false\)\) \{.*?\n\s*return\n\s*\}\n',
-    '\n',
+    r'\n\s*if \(wasWindowsPhoneUser\b.*?\n\s*if \(shownForVersion != currentVersion\)',
+    '\n\n        if (shownForVersion != currentVersion)',
     s,
     flags=re.S,
 )
@@ -79,6 +80,11 @@ s = re.sub(
 
 # Remove a leftover companion URL declaration if the upstream source still has one.
 s = re.sub(r'^\s*(?:private\s+)?(?:const\s+)?val\s+WINDOWS_PHONE_LAUNCHER_URL\s*=.*\n', '', s, flags=re.M)
+
+# Defensive cleanup for references left only in comments or dead source after the
+# structural removals above.
+s = s.replace("WP8Migration.KEY_NOTICE_SHOWN", '"winsung_retired_wp8_notice"')
+s = s.replace("WP8Migration", "RetiredWindowsPhoneMigration")
 
 # Replace inherited developer/update copy. A callable replacement preserves the
 # backslash-n escapes required inside a normal Kotlin string literal.
