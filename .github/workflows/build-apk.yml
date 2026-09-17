@@ -29,6 +29,12 @@ jobs:
           python3 -m py_compile /tmp/add_masterpiece.py
           python3 /tmp/add_masterpiece.py
 
+      - name: Dump generated WINSUNG controller for reconstruction
+        run: |
+          echo '=== WINSUNG98 CONTROLLER BEGIN ==='
+          cat upstream/app/src/main/java/rocks/gorjan/gokixp/winsung/Winsung98Controller.kt
+          echo '=== WINSUNG98 CONTROLLER END ==='
+
       - name: Apply post-masterpiece privacy hardening
         run: python3 scripts/post_masterpiece_hardening.py
 
