@@ -32,6 +32,9 @@ jobs:
       - name: Apply post-masterpiece privacy hardening
         run: python3 scripts/post_masterpiece_hardening.py
 
+      - name: Audit master specification markers
+        run: python3 scripts/spec_audit.py
+
       - name: Privacy audit source tree
         run: |
           echo "Manifest permissions:"
