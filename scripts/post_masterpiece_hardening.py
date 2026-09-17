@@ -16,7 +16,7 @@ for retired in (java_root / "WP8Migration.kt", java_root / "WP8MigrationProvider
 # already wires Windows 7 through resource selection, using Vista resources as
 # a temporary compatibility fallback where dedicated Windows 7 assets are absent.
 t = theme_manager.read_text()
-if "object Windows7 : AppTheme()" not in t:
+if not re.search(r'^\s*object Windows7\s*:\s*AppTheme\(\)', t, flags=re.M):
     vista_object = '''    object WindowsVista : AppTheme() {
         override val customIconsKey = "custom_icons_vista"
         override fun toString() = "Windows Vista"
