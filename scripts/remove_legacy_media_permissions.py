@@ -41,6 +41,35 @@ s = re.sub(
     flags=re.S,
 )
 
+# Any residual compatibility branch that mentioned an old Android storage/media
+# permission is converted to an ungrantable private sentinel. It cannot trigger a
+# system permission dialog and keeps old helper signatures compilable until the
+# unused Winamp/WMP library-browser code is removed completely.
+for permission in (
+    "READ_EXTERNAL_STORAGE",
+    "WRITE_EXTERNAL_STORAGE",
+    "READ_MEDIA_AUDIO",
+    "READ_MEDIA_VIDEO",
+    "READ_MEDIA_IMAGES",
+    "MANAGE_EXTERNAL_STORAGE",
+):
+    s = s.replace(
+        f"android.Manifest.permission.{permission}",
+        '"winsung.retired.NO_MEDIA_STORAGE_ACCESS"',
+    )
+    s = s.replace(permission, "retired_media_storage_permission")
+
+s = s.replace(
+    "Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION",
+    "Settings.ACTION_APPLICATION_DETAILS_SETTINGS",
+)
+s = s.replace(
+    "Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION",
+    "Settings.ACTION_APPLICATION_DETAILS_SETTINGS",
+)
+s = s.replace("android.os.Environment.isExternalStorageManager()", "false")
+s = s.replace("Environment.isExternalStorageManager()", "false")
+
 path.write_text(s)
 
 for token in (
@@ -51,6 +80,7 @@ for token in (
     "READ_MEDIA_IMAGES",
     "MANAGE_EXTERNAL_STORAGE",
     "ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION",
+    "ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION",
     "isExternalStorageManager",
 ):
     if token in s:
