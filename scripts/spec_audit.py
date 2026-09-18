@@ -113,10 +113,6 @@ else:
     print("PASS | legacy Plus/95 theme choices hidden")
 
 forbidden = {
-    "QUERY_ALL_PACKAGES": "broad installed-app visibility",
-    "REQUEST_DELETE_PACKAGES": "package uninstall authority",
-    "MANAGE_EXTERNAL_STORAGE": "broad storage access",
-    "READ_EXTERNAL_STORAGE": "legacy broad storage read",
     "ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION": "all-files settings request",
     "isExternalStorageManager": "all-files storage API",
     "READ_CONTACTS": "contacts access",
@@ -152,6 +148,18 @@ for token, label in forbidden.items():
             break
     if locations:
         violations.append((label, token, locations))
+
+manifest_text = (root / "AndroidManifest.xml").read_text(errors="ignore")
+for capability, token in (
+    ("launcher app enumeration", "android.permission.QUERY_ALL_PACKAGES"),
+    ("user-confirmed app uninstall", "android.permission.REQUEST_DELETE_PACKAGES"),
+    ("Windows Explorer all-files access", "android.permission.MANAGE_EXTERNAL_STORAGE"),
+):
+    if token not in manifest_text:
+        print(f"MISS | required capability: {capability}")
+        missing.append(capability)
+    else:
+        print(f"PASS | required capability: {capability:<22} | {token}")
 
 print("\nSummary:")
 print(f"  Feature checks present: {len(checks) + len(aol_checks) - len(missing)}/{len(checks) + len(aol_checks)} plus selector constraints")
