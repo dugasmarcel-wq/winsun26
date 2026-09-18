@@ -165,7 +165,30 @@ main_activity.write_text(s)
 # Internal dialer only hands the number to Android's dialer; it never reads contacts.
 if dialer.exists():
     d = dialer.read_text()
-    d = replace_body(d, "callContact", 'onSoundPlay(R.raw.click)\ntry {\n    val intent = Intent(Intent.ACTION_DIAL)\n    intent.data = Uri.parse("tel:$phoneNumber")\n    context.startActivity(intent)\n} catch (e: Exception) {\n    Log.e("DialerApp", "Error opening system dialer", e)\n}')
+    call_token = "fun callContact"
+    call_pos = d.find(call_token)
+    if call_pos < 0:
+        raise SystemExit("Dialer callContact function not found")
+    call_start = d.rfind("\n", 0, call_pos) + 1
+    call_brace = d.find("{", call_pos)
+    if call_brace < 0:
+        raise SystemExit("Dialer callContact body not found")
+    call_end = matching_brace(d, call_brace)
+    call_prefix = d[call_start:call_pos]
+    call_indent = call_prefix[: len(call_prefix) - len(call_prefix.lstrip())]
+    call_replacement = (
+        call_indent + "private fun callContact(phoneNumber: String) {\n"
+        + call_indent + "    onSoundPlay(R.raw.click)\n"
+        + call_indent + "    try {\n"
+        + call_indent + "        val intent = Intent(Intent.ACTION_DIAL)\n"
+        + call_indent + '        intent.data = Uri.parse("tel:$phoneNumber")\n'
+        + call_indent + "        context.startActivity(intent)\n"
+        + call_indent + "    } catch (e: Exception) {\n"
+        + call_indent + '        Log.e("DialerApp", "Error opening system dialer", e)\n'
+        + call_indent + "    }\n"
+        + call_indent + "}"
+    )
+    d = d[:call_start] + call_replacement + d[call_end + 1:]
     # Replace the complete declaration by function name. Avoid depending on the
     # generator's exact signature formatting.
     search_token = "fun searchContacts"
