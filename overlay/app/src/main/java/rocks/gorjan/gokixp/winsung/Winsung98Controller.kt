@@ -328,7 +328,7 @@ class SecondaryPage(private val activity: MainActivity, onSwipe: (Int) -> Unit) 
             Triple("Date & Time", "custom_icons_98/Clock.webp", { activity.winsungOpenClock() }),
             Triple("Media Player", "custom_icons_98/media_player-0.webp", { activity.winsungOpenWmp() }),
             Triple("Games", "custom_icons_98/game_solitaire-0.webp", { activity.winsungOpenGames() }),
-            Triple("Programs", "custom_icons/Programs.webp", { activity.winsungOpenGames() })
+            Triple("Programs / Games", "custom_icons/Programs.webp", { activity.winsungOpenGames() })
         )
 
         shortcuts.chunked(4).forEachIndexed { rowIndex, rowItems ->
