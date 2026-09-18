@@ -37,14 +37,15 @@ checks = {
     "Scoped file picker": ["ACTION_OPEN_DOCUMENT", "ACTION_GET_CONTENT", "ActivityResultContracts.OpenDocument"],
     "Safe dialer intent": ["ACTION_DIAL"],
     "Windows 98 identity": ["Windows 98"],
+    "Windows 98 teal default": ["Color.rgb(0, 128, 128)"],
     "Windows XP": ["Windows XP"],
     "Windows Vista": ["Windows Vista"],
-    "Windows 7": ["Windows 7"],
-    "Win7 independent icon prefs": ["custom_icons_windows7"],
     "Native Win98 bevel UI": ["ClassicBevelDrawable"],
     "Native AOL backdrop": ["AolBackdrop"],
     "Native AOL channel controls": ["AolChannelView"],
     "Taskbar-integrated fixed apps": ["R.id.taskbar_empty_space"],
+    "Win98 tray removed": ["R.id.system_tray", "View.GONE"],
+    "Win98 edge chrome": ["statusBarColor", "navigationBarColor"],
     "Live notification badge refresh": ["badgeTick"],
     "Native Phone icon asset": ["custom_icons_98/Phone.webp"],
     "Native WhatsApp icon asset": ["custom_icons_98/WhatsApp.webp"],
@@ -88,15 +89,15 @@ for label, needle in aol_checks.items():
         print(f"MISS | {label}")
         missing.append(label)
 
-# The public selector must be exactly four environments. WindowsClassic is an
+# The public selector must be exactly three environments. WindowsClassic is an
 # internal compatibility object only; it is displayed and persisted as Windows 98.
 selector = re.search(r'fun\s+all\(\)\s*:\s*List<AppTheme>\s*=\s*listOf\(([^)]*)\)', theme_text)
-expected_selector = "WindowsClassic, WindowsXP, WindowsVista, Windows7"
+expected_selector = "WindowsClassic, WindowsXP, WindowsVista"
 if not selector or re.sub(r'\s+', '', selector.group(1)) != re.sub(r'\s+', '', expected_selector):
-    print("MISS | exact four-environment selector")
-    missing.append("exact four-environment selector")
+    print("MISS | exact three-environment selector")
+    missing.append("exact three-environment selector")
 else:
-    print("PASS | exact four-environment selector    | Windows 98 / XP / Vista / 7")
+    print("PASS | exact three-environment selector   | Windows 98 / XP / Vista")
 
 classic_object = re.search(r'object\s+WindowsClassic\s*:\s*AppTheme\(\)\s*\{(.*?)\n\s*\}', theme_text, re.S)
 if not classic_object or 'toString() = "Windows 98"' not in classic_object.group(1):
