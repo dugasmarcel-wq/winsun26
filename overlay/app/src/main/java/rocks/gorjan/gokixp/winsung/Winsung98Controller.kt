@@ -305,102 +305,88 @@ class QuickGlancePage(
     }
 }
 
-class MediaBridge(private val context: Context) {
-    data class State(val title: String = "Nothing playing", val artist: String = "", val playing: Boolean = false)
-    private val manager = context.getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
-    private fun controller(): MediaController? = try {
-        manager.getActiveSessions(ComponentName(context, NotificationListenerService::class.java)).firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING }
-            ?: manager.getActiveSessions(ComponentName(context, NotificationListenerService::class.java)).firstOrNull()
-    } catch (_: Exception) { null }
-    fun state(): State {
-        val c = controller() ?: return State()
-        val m = c.metadata
-        return State(m?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: m?.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE) ?: "Media", m?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: "", c.playbackState?.state == PlaybackState.STATE_PLAYING)
-    }
-    fun toggle() { controller()?.let { if (it.playbackState?.state == PlaybackState.STATE_PLAYING) it.transportControls.pause() else it.transportControls.play() } }
-    fun next() { controller()?.transportControls?.skipToNext() }
-    fun prev() { controller()?.transportControls?.skipToPrevious() }
-}
-
 class SecondaryPage(private val activity: MainActivity, onSwipe: (Int) -> Unit) : SwipePageFrame(activity, onSwipe) {
-    private val ui = Handler(Looper.getMainLooper())
-    private val media = MediaBridge(activity)
-    private val clock = TextView(activity)
-    private val date = TextView(activity)
-    private val title = TextView(activity)
-    private val artist = TextView(activity)
-    private val play = TextView(activity)
-    private val tick = object : Runnable { override fun run() { update(); ui.postDelayed(this, 1000L) } }
-
     init {
         setBackgroundColor(DESKTOP_TEAL)
-        val root = FrameLayout(activity)
+
+        val root = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.TOP
+            setPadding(activity.wdp(10), activity.wdp(10), activity.wdp(10), activity.wdp(10))
+        }
         addView(root, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         root.post {
             val top = root.rootWindowInsets?.systemWindowInsetTop ?: 0
-            root.setPadding(activity.wdp(8), top + activity.wdp(8), activity.wdp(8), activity.wdp(8))
+            root.setPadding(activity.wdp(10), top + activity.wdp(12), activity.wdp(10), activity.wdp(10))
         }
 
-        val iconRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.START }
-        listOf(
+        val shortcuts = listOf(
             Triple("My Computer", "custom_icons_98/computer-0.webp", { activity.winsungOpenMyComputer() }),
-            Triple("Pictures", "custom_icons_98/image_old_gif-0.webp", { activity.winsungOpenPictures() }),
-            Triple("Notes", "custom_icons_programs/Notes.webp", { activity.winsungOpenNotepad() }),
-            Triple("Programs", "custom_icons_98/appwizard_list.webp", { activity.winsungOpenGames() })
-        ).forEach { (label, icon, action) -> iconRow.addView(desktopShortcut(label, icon, action), LinearLayout.LayoutParams(0, activity.wdp(78), 1f)) }
-        root.addView(iconRow, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.wdp(82), Gravity.TOP))
+            Triple("Pictures", "custom_icons/My Pictures.webp", { activity.winsungOpenPictures() }),
+            Triple("Notepad", "custom_icons_98/notepad-0.webp", { activity.winsungOpenNotepad() }),
+            Triple("Internet Explorer", "custom_icons/Internet Explorer 6.webp", { activity.winsungOpenInternet("https://www.google.com/") }),
+            Triple("Date & Time", "custom_icons_98/Clock.webp", { activity.winsungOpenClock() }),
+            Triple("Media Player", "custom_icons_98/media_player-0.webp", { activity.winsungOpenWmp() }),
+            Triple("Games", "custom_icons_98/game_solitaire-0.webp", { activity.winsungOpenGames() }),
+            Triple("Programs", "custom_icons/Programs.webp", { activity.winsungOpenGames() })
+        )
 
-        val dateWindow = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL; background = raised(); setPadding(activity.wdp(3), activity.wdp(3), activity.wdp(3), activity.wdp(3))
-            addView(titleBar(activity, "Date & Time", "custom_icons_98/Clock.webp"), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.wdp(24)))
-            val body = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(activity.wdp(9), activity.wdp(8), activity.wdp(9), activity.wdp(8)) }
-            body.addView(LinearLayout(activity).apply {
-                orientation = LinearLayout.VERTICAL; background = inset(); gravity = Gravity.CENTER; setPadding(activity.wdp(8), activity.wdp(5), activity.wdp(8), activity.wdp(5))
-                addView(TextView(activity).apply { text = "DATE"; classicText(8f, Color.WHITE, true); gravity = Gravity.CENTER; background = GradientDrawable().apply { setColor(NAVY) } }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.wdp(18)))
-                addView(date.apply { classicText(13f, Color.BLACK, true); gravity = Gravity.CENTER; setPadding(0, activity.wdp(5), 0, activity.wdp(5)) })
-            }, LinearLayout.LayoutParams(0, activity.wdp(78), 1f))
-            body.addView(LinearLayout(activity).apply {
-                orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; background = inset(); addView(ImageView(activity).apply { setImageDrawable(assetDrawable(activity, "custom_icons_98/Clock.webp")); scaleType = ImageView.ScaleType.CENTER_INSIDE }, LinearLayout.LayoutParams(activity.wdp(48), activity.wdp(48))); addView(clock.apply { classicText(12f, Color.BLACK, false); gravity = Gravity.CENTER })
-            }, LinearLayout.LayoutParams(0, activity.wdp(78), 1f).apply { marginStart = activity.wdp(8) })
-            addView(body)
-            addView(classicButton(activity, "Date/Time Properties") { activity.winsungOpenClock() }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.wdp(27)).apply { leftMargin = activity.wdp(8); rightMargin = activity.wdp(8); bottomMargin = activity.wdp(6) })
-        }
-        root.addView(dateWindow, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.wdp(145), Gravity.TOP).apply { topMargin = activity.wdp(92) })
-
-        val mediaWindow = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL; background = raised(); setPadding(activity.wdp(3), activity.wdp(3), activity.wdp(3), activity.wdp(3))
-            addView(titleBar(activity, "Media Player", "custom_icons_98/media_player-0.webp"), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.wdp(24)))
-            val menu = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; listOf("File", "Playback", "Options").forEach { m -> addView(TextView(activity).apply { text = m; classicText(9.5f); setPadding(activity.wdp(7), 0, activity.wdp(7), 0) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, activity.wdp(24))) } }
-            addView(menu)
-            val display = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setBackgroundColor(Color.rgb(0, 37, 54)); setPadding(activity.wdp(8), activity.wdp(6), activity.wdp(8), activity.wdp(6)) }
-            display.addView(ImageView(activity).apply { setImageDrawable(assetDrawable(activity, "custom_icons_98/media_player-0.webp")); scaleType = ImageView.ScaleType.CENTER_INSIDE }, LinearLayout.LayoutParams(activity.wdp(42), activity.wdp(42)).apply { marginEnd = activity.wdp(10) })
-            display.addView(LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; addView(TextView(activity).apply { text = "MEDIA PLAYER"; classicText(8f, Color.rgb(121, 203, 212)); letterSpacing = .12f }); addView(title.apply { classicText(13f, Color.WHITE, true); maxLines = 1 }); addView(artist.apply { classicText(9f, Color.rgb(180, 203, 210)); maxLines = 1 }) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            addView(display, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.wdp(65)).apply { leftMargin = activity.wdp(4); rightMargin = activity.wdp(4) })
-            val controls = LinearLayout(activity).apply {
-                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(activity.wdp(4), activity.wdp(4), activity.wdp(4), activity.wdp(4))
-                addView(classicButton(activity, "|<") { media.prev(); update() }, LinearLayout.LayoutParams(0, activity.wdp(30), 1f))
-                addView(play.apply { text = ">"; classicText(11f); gravity = Gravity.CENTER; background = raised(); isClickable = true; setOnClickListener { media.toggle(); ui.postDelayed({ update() }, 150) } }, LinearLayout.LayoutParams(0, activity.wdp(30), 1f).apply { marginStart = activity.wdp(4) })
-                addView(classicButton(activity, ">|") { media.next(); update() }, LinearLayout.LayoutParams(0, activity.wdp(30), 1f).apply { marginStart = activity.wdp(4) })
-                addView(classicButton(activity, "Open music") { activity.winsungOpenWmp() }, LinearLayout.LayoutParams(0, activity.wdp(30), 1.5f).apply { marginStart = activity.wdp(8) })
+        shortcuts.chunked(4).forEachIndexed { rowIndex, rowItems ->
+            val row = LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.START
             }
-            addView(controls)
+            rowItems.forEach { (label, icon, action) ->
+                row.addView(
+                    desktopShortcut(label, icon, action),
+                    LinearLayout.LayoutParams(0, activity.wdp(96), 1f)
+                )
+            }
+            root.addView(
+                row,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    activity.wdp(96)
+                ).apply { if (rowIndex > 0) topMargin = activity.wdp(10) }
+            )
         }
-        root.addView(mediaWindow, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, activity.wdp(180), Gravity.BOTTOM))
-        update()
+
+        root.addView(TextView(activity).apply {
+            text = "Windows 98 tools"
+            classicText(9f, Color.WHITE, false)
+            setShadowLayer(2f, 1f, 1f, Color.BLACK)
+            gravity = Gravity.START
+            setPadding(activity.wdp(6), activity.wdp(18), 0, 0)
+        })
     }
 
-    private fun desktopShortcut(label: String, icon: String, action: () -> Unit): LinearLayout = LinearLayout(activity).apply {
-        orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; isClickable = true; setOnClickListener { action() }
-        addView(ImageView(activity).apply { setImageDrawable(assetDrawable(activity, icon)); scaleType = ImageView.ScaleType.CENTER_INSIDE }, LinearLayout.LayoutParams(activity.wdp(42), activity.wdp(42)))
-        addView(TextView(activity).apply { text = label; classicText(9.5f, Color.WHITE, false); gravity = Gravity.CENTER; setShadowLayer(2f, 1f, 1f, Color.BLACK); maxLines = 1 })
-    }
+    private fun desktopShortcut(label: String, icon: String, action: () -> Unit): LinearLayout =
+        LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            isClickable = true
+            isFocusable = true
+            setPadding(activity.wdp(3), activity.wdp(4), activity.wdp(3), 0)
+            setOnClickListener { action() }
 
-    fun shown() { ui.removeCallbacks(tick); ui.post(tick) }
-    fun hidden() { ui.removeCallbacks(tick) }
-    private fun update() {
-        val now = Date(); clock.text = SimpleDateFormat("h:mm:ss a", Locale.US).format(now); date.text = SimpleDateFormat("MMM d, yyyy", Locale.US).format(now)
-        val s = media.state(); title.text = s.title; artist.text = s.artist.ifBlank { "No active media session" }; play.text = if (s.playing) "||" else ">"
-    }
+            addView(
+                ImageView(activity).apply {
+                    setImageDrawable(assetDrawable(activity, icon))
+                    scaleType = ImageView.ScaleType.CENTER_INSIDE
+                },
+                LinearLayout.LayoutParams(activity.wdp(48), activity.wdp(48))
+            )
+            addView(TextView(activity).apply {
+                text = label
+                classicText(9.5f, Color.WHITE, false)
+                gravity = Gravity.CENTER
+                setShadowLayer(2f, 1f, 1f, Color.BLACK)
+                maxLines = 2
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+
+    fun shown() {}
+    fun hidden() {}
 }
 
 private class AolBackdrop(context: Context) : View(context) {
@@ -487,7 +473,9 @@ class AolPage(private val activity: MainActivity, onSwipe: (Int) -> Unit, privat
 class Winsung98Controller(private val activity: MainActivity) {
     companion object { const val QUICK = 0; const val DESKTOP = 1; const val SECOND = 2; const val AOL1 = 3; const val AOL2 = 4; const val COUNT = 5 }
     private val bg = activity.findViewById<RelativeLayout>(R.id.main_background)
-    private val overlay = FrameLayout(activity)
+    private val desktopIcons = activity.findViewById<View>(R.id.desktop_icons_container)
+    private val christmas = activity.findViewById<View>(R.id.christmas_wrapper)
+    private val overlay = FrameLayout(activity).apply { elevation = activity.wdp(40).toFloat() }
     private val dock = LinearLayout(activity)
     private val dots = LinearLayout(activity)
     private val topSystemChrome = View(activity).apply {
@@ -552,6 +540,9 @@ class Winsung98Controller(private val activity: MainActivity) {
             activity.findViewById<View>(R.id.root_container)?.setBackgroundColor(Color.BLACK)
             activity.findViewById<View>(R.id.gesture_bar_background)?.setBackgroundColor(Color.BLACK)
             activity.findViewById<View>(R.id.system_tray)?.visibility = View.VISIBLE
+            desktopIcons.visibility = View.VISIBLE
+            christmas.visibility = View.VISIBLE
+            bg.findViewWithTag<ImageView>("wallpaper")?.visibility = View.VISIBLE
             topSystemChrome.visibility = View.GONE
         } else {
             // Windows 98 owns the full visual edge.  The Android status/navigation
@@ -587,14 +578,47 @@ class Winsung98Controller(private val activity: MainActivity) {
     fun quick() { show(QUICK) }
     fun show(target: Int, animate: Boolean = true) {
         if (!classic) return
-        val old = page; page = target.coerceIn(0, COUNT - 1); quick.hidden(); second.hidden(); listOf(quick, second, aol1, aol2).forEach { it.visibility = View.GONE }
-        if (page == DESKTOP) overlay.visibility = View.GONE else {
-            val v = when (page) { QUICK -> quick; SECOND -> second; AOL1 -> aol1; else -> aol2 }
-            v.visibility = View.VISIBLE; overlay.visibility = View.VISIBLE
-            if (animate) { val w = bg.width.takeIf { it > 0 } ?: activity.resources.displayMetrics.widthPixels; overlay.translationX = if (page > old) w.toFloat() else -w.toFloat(); overlay.animate().translationX(0f).setDuration(170).setInterpolator(DecelerateInterpolator()).start() }
-            if (page == QUICK) quick.shown(); if (page == SECOND) second.shown()
+        val old = page
+        page = target.coerceIn(0, COUNT - 1)
+        quick.hidden()
+        second.hidden()
+        listOf(quick, second, aol1, aol2).forEach { it.visibility = View.GONE }
+
+        if (page == DESKTOP) {
+            overlay.visibility = View.GONE
+            desktopIcons.visibility = View.VISIBLE
+            christmas.visibility = View.VISIBLE
+            bg.findViewWithTag<ImageView>("wallpaper")?.visibility = View.VISIBLE
+        } else {
+            // Custom Win98 pages must not leak wallpaper, Clippy/agents or desktop
+            // icons through their backgrounds.
+            desktopIcons.visibility = View.GONE
+            christmas.visibility = View.GONE
+            bg.findViewWithTag<ImageView>("wallpaper")?.visibility = View.GONE
+
+            val v = when (page) {
+                QUICK -> quick
+                SECOND -> second
+                AOL1 -> aol1
+                else -> aol2
+            }
+            v.visibility = View.VISIBLE
+            overlay.visibility = View.VISIBLE
+            if (animate) {
+                val w = bg.width.takeIf { it > 0 } ?: activity.resources.displayMetrics.widthPixels
+                overlay.translationX = if (page > old) w.toFloat() else -w.toFloat()
+                overlay.animate()
+                    .translationX(0f)
+                    .setDuration(170)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+            }
+            if (page == QUICK) quick.shown()
+            if (page == SECOND) second.shown()
         }
-        updateDots(); refreshBadges()
+
+        updateDots()
+        refreshBadges()
     }
 
     fun refreshBadges() {
@@ -617,15 +641,63 @@ class Winsung98Controller(private val activity: MainActivity) {
     }
 
     private fun buildDock() {
-        dock.orientation = LinearLayout.HORIZONTAL; dock.gravity = Gravity.CENTER_VERTICAL; dock.background = null
+        dock.orientation = LinearLayout.HORIZONTAL
+        dock.gravity = Gravity.START or Gravity.CENTER_VERTICAL
+        dock.background = null
+        dock.setPadding(0, activity.wdp(1), 0, activity.wdp(1))
+
         FIXED_APPS.forEachIndexed { i, a ->
-            val f = FrameLayout(activity).apply { background = raised(); isClickable = true; contentDescription = a.label; setOnClickListener { if (!activity.winsungLaunchPackage(a.packages.toTypedArray())) activity.winsungShowToast("${a.label} is not installed") } }
-            val icon = ImageView(activity).apply { scaleType = ImageView.ScaleType.CENTER_INSIDE; setImageDrawable(assetDrawable(activity, a.asset) ?: assetDrawable(activity, when (a.label) { "Phone" -> "custom_icons_98/Phone.webp"; "Signal" -> "custom_icons_98/Mail.webp"; "Firefox" -> "custom_icons/Internet Explorer 6.webp"; "WhatsApp" -> "custom_icons_98/WhatsApp.webp"; else -> "custom_icons_98/media_player-0.webp" })) }
-            f.addView(icon, FrameLayout.LayoutParams(activity.wdp(25), activity.wdp(25), Gravity.CENTER))
-            val b = TextView(activity).apply { visibility = View.GONE; classicText(7.5f, Color.WHITE, true); gravity = Gravity.CENTER; minWidth = activity.wdp(15); background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.rgb(190, 0, 0)); setStroke(1, Color.WHITE) } }
+            val f = FrameLayout(activity).apply {
+                background = raised()
+                isClickable = true
+                isFocusable = true
+                contentDescription = a.label
+                setOnClickListener {
+                    if (!activity.winsungLaunchPackage(a.packages.toTypedArray())) {
+                        activity.winsungShowToast("${a.label} is not installed")
+                    }
+                }
+            }
+
+            val icon = ImageView(activity).apply {
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                setImageDrawable(assetDrawable(activity, a.asset))
+            }
+            f.addView(
+                icon,
+                FrameLayout.LayoutParams(activity.wdp(23), activity.wdp(23), Gravity.CENTER)
+            )
+
+            val b = TextView(activity).apply {
+                visibility = View.GONE
+                classicText(7f, Color.WHITE, true)
+                gravity = Gravity.CENTER
+                minWidth = activity.wdp(14)
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.rgb(190, 0, 0))
+                    setStroke(1, Color.WHITE)
+                }
+            }
             badges[a.label] = b
-            f.addView(b, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, activity.wdp(16), Gravity.TOP or Gravity.END).apply { topMargin = -activity.wdp(1); rightMargin = -activity.wdp(1) })
-            dock.addView(f, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply { if (i > 0) marginStart = activity.wdp(2) })
+            f.addView(
+                b,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    activity.wdp(15),
+                    Gravity.TOP or Gravity.END
+                ).apply {
+                    topMargin = -activity.wdp(1)
+                    rightMargin = -activity.wdp(1)
+                }
+            )
+
+            dock.addView(
+                f,
+                LinearLayout.LayoutParams(activity.wdp(40), ViewGroup.LayoutParams.MATCH_PARENT).apply {
+                    if (i > 0) marginStart = activity.wdp(2)
+                }
+            )
         }
     }
 
@@ -643,10 +715,11 @@ class Winsung98Controller(private val activity: MainActivity) {
         }
         host.setPadding(activity.wdp(4), 0, activity.wdp(4), 0)
         host.removeAllViews()
+        host.gravity = Gravity.START or Gravity.CENTER_VERTICAL
         host.addView(
             dock,
             LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         )
