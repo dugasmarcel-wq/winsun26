@@ -65,7 +65,7 @@ s = re.sub(r'\n\s*onImportFromGoogleDrive = \{ importFromGoogleDrive\(\) \},', '
 s = re.sub(r'\n\s*onAutoSyncChanged = \{ enabled -> handleAutoSyncChanged\(enabled\) \},', '', s)
 s = re.sub(r'\n\s*getLastSyncTime = \{ preferences\.getSafeLong\(KEY_LAST_GOOGLE_DRIVE_SYNC, 0L\) \}', '', s)
 s = re.sub(r'\n\s*private fun exportToGoogleDrive\(prefs: android\.content\.SharedPreferences\) \{.*?\n\s*private fun showDialerDialog\(\) \{', '\n\n    private fun showDialerDialog() {', s, flags=re.S)
-# Remove any remaining auto-sync call sites after the cloud functions were deleted.
+# RegistryEditorApp cleanup is a no-op upstream; the local-only stripped variant does not expose it.\ns = s.replace('            regeditApp.cleanup()\\n', '')\n# Remove any remaining auto-sync call sites after the cloud functions were deleted.
 s = re.sub(r'^\s*stopAutoSync\(\)\s*$', '        // WINSUNG private build: no cloud auto-sync', s, flags=re.M)
 s = re.sub(r'^\s*startAutoSync\(\)\s*$', '            // WINSUNG private build: no cloud auto-sync', s, flags=re.M)
 # Remote updater disabled in private build.
