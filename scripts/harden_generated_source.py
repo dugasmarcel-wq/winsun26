@@ -115,10 +115,10 @@ s = re.sub(
     r'\1\n', s, count=1, flags=re.S,
 )
 
-# No calendar DB permission, no broad storage permission path.
+# No calendar database access. File Explorer keeps Jovanovski's explicit
+# all-files permission flow because the user requested a functioning local
+# Explorer; that permission is only requested when Explorer is opened.
 s = replace_body(s, "requestCalendarPermission", "return")
-s = replace_body(s, "hasStoragePermission", "return false")
-s = replace_body(s, "requestStoragePermission", "return")
 
 # No inherited automatic location/weather/AQI system. AOL Weather is user initiated.
 weather = {
@@ -146,8 +146,8 @@ for name, body in weather.items():
 s = re.sub(r'\n\s*LOCATION_PERMISSION_REQUEST_CODE\s*->\s*if\b.*?\n\s*CALENDAR_PERMISSION_REQUEST_CODE\s*->', '\n            CALENDAR_PERMISSION_REQUEST_CODE ->', s, count=1, flags=re.S)
 s = re.sub(r'\n\s*CALENDAR_PERMISSION_REQUEST_CODE\s*->\s*if\b.*?\n\s*AUDIO_PERMISSION_REQUEST_CODE\s*->', '\n            AUDIO_PERMISSION_REQUEST_CODE ->', s, count=1, flags=re.S)
 
-# Remove stale claim about QUERY_ALL_PACKAGES; WINSUNG uses scoped package visibility.
-s = s.replace('// QUERY_ALL_PACKAGES is held, so "not found" here means genuinely not installed\n        // rather than merely not visible to this app.', '// Package lookups are limited to launcher-visible/explicitly queried apps.')
+# QUERY_ALL_PACKAGES is retained because this is a launcher and its Start menus
+# must enumerate installed launchable apps reliably.
 
 # These cleanup hooks are no-ops upstream; stripped local variants do not expose them.
 s = s.replace("            regeditApp.cleanup()\n", "")
