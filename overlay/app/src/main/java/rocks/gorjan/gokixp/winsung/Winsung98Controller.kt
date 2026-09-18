@@ -166,11 +166,11 @@ open class SwipePageFrame(context: Context, private val onSwipe: (Int) -> Unit) 
 
 data class FixedApp(val label: String, val packages: List<String>, val asset: String)
 val FIXED_APPS = listOf(
-    FixedApp("Phone", listOf("com.samsung.android.dialer", "com.google.android.dialer"), "winsung_fixed/phone.png"),
-    FixedApp("Signal", listOf("org.thoughtcrime.securesms"), "winsung_fixed/signal.png"),
-    FixedApp("Firefox", listOf("org.mozilla.firefox"), "winsung_fixed/firefox.png"),
-    FixedApp("WhatsApp", listOf("com.whatsapp"), "winsung_fixed/whatsapp.png"),
-    FixedApp("YouTube Music", listOf("com.google.android.apps.youtube.music"), "winsung_fixed/ytmusic.png")
+    FixedApp("Phone", listOf("com.samsung.android.dialer", "com.google.android.dialer"), "custom_icons_98/Phone.webp"),
+    FixedApp("Signal", listOf("org.thoughtcrime.securesms"), "custom_icons_98/accessibility_window_signal.webp"),
+    FixedApp("Firefox", listOf("org.mozilla.firefox"), "custom_icons/Internet Explorer 6.webp"),
+    FixedApp("WhatsApp", listOf("com.whatsapp"), "custom_icons_98/WhatsApp.webp"),
+    FixedApp("YouTube Music", listOf("com.google.android.apps.youtube.music"), "custom_icons_programs/YouTube.webp")
 )
 
 class QuickGlancePage(
@@ -492,6 +492,9 @@ class Winsung98Controller(private val activity: MainActivity) {
     private val dots = LinearLayout(activity)
     private val badges = mutableMapOf<String, TextView>()
     private val ui = Handler(Looper.getMainLooper())
+    private val originalStatusBarColor = activity.window.statusBarColor
+    private val originalNavigationBarColor = activity.window.navigationBarColor
+    private val originalSystemUiVisibility = activity.window.decorView.systemUiVisibility
     private var page = DESKTOP
     private var classic = false
     private val quick = QuickGlancePage(activity, ::swipe, activity::winsungOpenInternet, activity::winsungOpenCalendar) { show(SECOND) }
@@ -512,10 +515,38 @@ class Winsung98Controller(private val activity: MainActivity) {
     fun theme(t: AppTheme) {
         classic = t is AppTheme.WindowsClassic
         dots.visibility = if (classic) View.VISIBLE else View.GONE
+
         if (!classic) {
-            ui.removeCallbacks(badgeTick); dock.visibility = View.GONE; quick.hidden(); second.hidden(); page = DESKTOP; overlay.visibility = View.GONE
+            ui.removeCallbacks(badgeTick)
+            dock.visibility = View.GONE
+            quick.hidden()
+            second.hidden()
+            page = DESKTOP
+            overlay.visibility = View.GONE
+
+            activity.window.statusBarColor = originalStatusBarColor
+            activity.window.navigationBarColor = originalNavigationBarColor
+            activity.window.decorView.systemUiVisibility = originalSystemUiVisibility
+            activity.findViewById<View>(R.id.root_container)?.setBackgroundColor(Color.BLACK)
+            activity.findViewById<View>(R.id.system_tray)?.visibility = View.VISIBLE
         } else {
-            attachDockToTaskbar(); dock.visibility = View.VISIBLE; ui.removeCallbacks(badgeTick); ui.post(badgeTick); show(DESKTOP, false)
+            // Windows 98 owns the full visual edge.  The Android status/navigation
+            // areas use the same classic face colour so there is no black strip above
+            // or below the desktop/taskbar.
+            activity.window.statusBarColor = FACE
+            activity.window.navigationBarColor = FACE
+            var flags = originalSystemUiVisibility or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                flags = flags or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+            }
+            activity.window.decorView.systemUiVisibility = flags
+            activity.findViewById<View>(R.id.root_container)?.setBackgroundColor(FACE)
+
+            attachDockToTaskbar()
+            dock.visibility = View.VISIBLE
+            ui.removeCallbacks(badgeTick)
+            ui.post(badgeTick)
+            show(DESKTOP, false)
         }
     }
 
@@ -568,10 +599,23 @@ class Winsung98Controller(private val activity: MainActivity) {
     private fun attachDockToTaskbar() {
         val host = activity.findViewById<LinearLayout>(R.id.taskbar_empty_space) ?: return
         (dock.parent as? ViewGroup)?.removeView(dock)
-        host.addView(dock, 0, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        activity.findViewById<View>(R.id.aqi_container)?.visibility = View.GONE
-        activity.findViewById<View>(R.id.weather_temp)?.visibility = View.GONE
-        activity.findViewById<View>(R.id.date_container)?.visibility = View.GONE
-        activity.findViewById<View>(R.id.update_icon)?.visibility = View.GONE
+
+        // WINSUNG Win98 taskbar: Start + exactly five fixed applications.
+        // Remove the inherited AQI/weather/volume/date/clock tray completely.
+        activity.findViewById<View>(R.id.system_tray)?.visibility = View.GONE
+        (host.layoutParams as? RelativeLayout.LayoutParams)?.let { lp ->
+            lp.removeRule(RelativeLayout.LEFT_OF)
+            lp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
+            host.layoutParams = lp
+        }
+        host.setPadding(activity.wdp(4), 0, activity.wdp(4), 0)
+        host.removeAllViews()
+        host.addView(
+            dock,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
     }
 }
