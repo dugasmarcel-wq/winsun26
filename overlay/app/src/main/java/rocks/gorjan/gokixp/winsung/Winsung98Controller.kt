@@ -512,7 +512,7 @@ class Winsung98Controller(private val activity: MainActivity) {
 
     init {
         overlay.visibility = View.GONE
-        val lp = RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT).apply { addRule(RelativeLayout.ALIGN_PARENT_TOP); bottomMargin = activity.wdp(36) }
+        val lp = RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT).apply { addRule(RelativeLayout.ALIGN_PARENT_TOP); bottomMargin = activity.wdp(66) }
         val fw = bg.findViewById<View>(R.id.floating_windows_container)
         bg.addView(overlay, bg.indexOfChild(fw).coerceAtLeast(1), lp)
         listOf(quick, second, aol1, aol2).forEach { overlay.addView(it, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)); it.visibility = View.GONE }
