@@ -114,6 +114,7 @@ else:
 
 forbidden = {
     "QUERY_ALL_PACKAGES": "broad installed-app visibility",
+    "REQUEST_DELETE_PACKAGES": "package uninstall authority",
     "MANAGE_EXTERNAL_STORAGE": "broad storage access",
     "READ_EXTERNAL_STORAGE": "legacy broad storage read",
     "ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION": "all-files settings request",
