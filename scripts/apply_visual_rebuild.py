@@ -103,6 +103,24 @@ if flavour_block in m:
     )
 main_activity.write_text(m)
 
+# Final manifest scrub after every generator/hardening pass.  The launcher can
+# display installed apps without holding package-uninstall authority, and the
+# notification listener uses the service-level bind permission rather than a
+# uses-permission grant.
+manifest = main / "AndroidManifest.xml"
+ms = manifest.read_text()
+for perm in (
+    "android.permission.REQUEST_DELETE_PACKAGES",
+    "android.permission.BIND_NOTIFICATION_LISTENER_SERVICE",
+):
+    ms = re.sub(
+        r'\s*<uses-permission\s+android:name="' + re.escape(perm) + r'"[^>]*/>',
+        '',
+        ms,
+        flags=re.S,
+    )
+manifest.write_text(ms)
+
 # Sanity-check the visual shell before compiling.
 controller_text = controller.read_text()
 required = (
