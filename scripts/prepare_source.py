@@ -47,7 +47,7 @@ if '<queries>' not in s:
         <package android:name="com.whatsapp" />
         <package android:name="com.google.android.apps.youtube.music" />
     </queries>\n'''
-    s = s.replace('>', '>' + queries, 1)
+    s = re.sub(r'(<manifest\\b[^>]*>)', lambda m: m.group(1) + queries, s, count=1)
 s = re.sub(r'\s*<!-- Accessibility Service for screen locking -->\s*<service\s+android:name="\.LockScreenAccessibilityService".*?</service>', '', s, flags=re.S)
 s = re.sub(r'\s*<!--\s*Hands the Windows Phone.*?<provider\s+android:name="\.WP8MigrationProvider".*?/>', '', s, flags=re.S)
 s = s.replace('android:allowBackup="true"', 'android:allowBackup="false"')
