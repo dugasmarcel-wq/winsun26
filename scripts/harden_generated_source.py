@@ -166,22 +166,27 @@ main_activity.write_text(s)
 if dialer.exists():
     d = dialer.read_text()
     d = replace_body(d, "callContact", 'onSoundPlay(R.raw.click)\ntry {\n    val intent = Intent(Intent.ACTION_DIAL)\n    intent.data = Uri.parse("tel:$phoneNumber")\n    context.startActivity(intent)\n} catch (e: Exception) {\n    Log.e("DialerApp", "Error opening system dialer", e)\n}')
-    # Replace the complete declaration so Kotlin keeps the explicit List<ContactInfo>
-    # return type even after the generated source has been compacted by earlier patches.
-    search_match = re.search(r'(?m)^    private fun searchContacts\\s*\\(query: String\\): List<ContactInfo>\\s*\\{', d)
-    if not search_match:
-        raise SystemExit("Dialer searchContacts declaration not found")
-    search_brace = d.find("{", search_match.start())
-    search_end = matching_brace(d, search_brace)
-    d = (
-        d[:search_match.start()]
-        + '''    private fun searchContacts(query: String): List<ContactInfo> {
-        @Suppress("UNUSED_VARIABLE")
-        val ignoredQuery = query
-        return emptyList<ContactInfo>()
-    }'''
-        + d[search_end + 1:]
+    # Replace the complete declaration by function name. The masterpiece generator
+    # can reflow the signature, so do not depend on its exact whitespace/type spelling.
+    search_match = re.search(
+        r'(?m)^(?P<i>[ \\t]*)(?:(?:private|public|protected|internal|override|suspend)\\s+)*fun\\s+searchContacts\\s*\\(',
+        d,
     )
+    if not search_match:
+        raise SystemExit("Dialer searchContacts function not found")
+    search_brace = d.find("{", search_match.end())
+    if search_brace < 0:
+        raise SystemExit("Dialer searchContacts body not found")
+    search_end = matching_brace(d, search_brace)
+    indent = search_match.group("i")
+    replacement = (
+        indent + "private fun searchContacts(query: String): List<ContactInfo> {\\n"
+        + indent + '    @Suppress("UNUSED_VARIABLE")\\n'
+        + indent + "    val ignoredQuery = query\\n"
+        + indent + "    return emptyList<ContactInfo>()\\n"
+        + indent + "}"
+    )
+    d = d[:search_match.start()] + replacement + d[search_end + 1:]
     dialer.write_text(d)
 
 # Legacy floating Quick Glance widget is retained only as a compatibility surface;
