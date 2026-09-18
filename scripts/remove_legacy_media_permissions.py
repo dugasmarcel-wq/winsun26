@@ -62,8 +62,6 @@ s = re.sub(
 # convert it to an app-private sentinel. This preserves their String-typed call
 # sites but can never request an Android media/storage permission.
 for permission in (
-    "READ_EXTERNAL_STORAGE",
-    "WRITE_EXTERNAL_STORAGE",
     "READ_MEDIA_AUDIO",
     "READ_MEDIA_VIDEO",
     "READ_MEDIA_IMAGES",
@@ -94,8 +92,6 @@ for required in (
 path.write_text(s)
 
 for token in (
-    "READ_EXTERNAL_STORAGE",
-    "WRITE_EXTERNAL_STORAGE",
     "READ_MEDIA_AUDIO",
     "READ_MEDIA_VIDEO",
     "READ_MEDIA_IMAGES",
