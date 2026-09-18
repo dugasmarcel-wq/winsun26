@@ -43,7 +43,7 @@ if strings.exists():
     s = re.sub(r'<string name="app_name">.*?</string>', '<string name="app_name">WINSUNG 98</string>', s)
     strings.write_text(s)
 
-# Windows 98 / Classic is the default; XP and Vista/7 remain separate native modes.
+# Windows 98 / Classic is the default; XP and Vista remain separate native modes.
 tm = main / 'java/rocks/gorjan/gokixp/theme/ThemeManager.kt'
 s = tm.read_text()
 s = s.replace('else -> WindowsXP // Default to XP if unknown', 'else -> WindowsClassic // WINSUNG default')
@@ -81,18 +81,25 @@ s = re.sub(r'private fun checkForUpdates\(showCheckingNotification: Boolean = fa
 s = s.replace('wasWindowsPhoneUser = WP8Migration.captureIfNeeded(this)', 'wasWindowsPhoneUser = false')
 # Make every legacy fallback default Classic too.
 s = s.replace('getString("selected_theme", "Windows XP") ?: "Windows XP"', 'getString("selected_theme", "Windows Classic") ?: "Windows Classic"')
-# Factory default classic teal desktop. Use Classic's actual wallpaper preference keys.
-needle = 'desktopContainer = findViewById(R.id.desktop_icons_container)'
-insert = '''desktopContainer = findViewById(R.id.desktop_icons_container)
+# Factory-default Windows 98 desktop is solid classic teal.  Patch the actual
+# wallpaper loader, not an earlier onCreate background assignment, so the
+# upstream default-wallpaper code cannot paint over the teal afterward.
+wallpaper_anchor = '''        val (pathKey, uriKey) = getCurrentThemeWallpaperKeys()
+'''
+wallpaper_insert = '''        val (pathKey, uriKey) = getCurrentThemeWallpaperKeys()
 
-        // WINSUNG: classic teal is the factory default for Windows 98 when no wallpaper has been chosen.
-        if (themeManager.getSelectedTheme() is AppTheme.WindowsClassic) {
-            if (!prefs.contains(KEY_WALLPAPER_CLASSIC_PATH) && !prefs.contains(KEY_WALLPAPER_CLASSIC_URI)) {
-                findViewById<View>(R.id.main_background).setBackgroundColor(android.graphics.Color.rgb(0, 128, 128))
-            }
-        }'''
-if needle in s:
-    s = s.replace(needle, insert, 1)
+        if (themeManager.getSelectedTheme() is AppTheme.WindowsClassic &&
+            !prefs.contains(KEY_WALLPAPER_CLASSIC_PATH) &&
+            !prefs.contains(KEY_WALLPAPER_CLASSIC_URI)) {
+            val root = findViewById<android.widget.RelativeLayout>(R.id.main_background)
+            root?.findViewWithTag<android.widget.ImageView>("wallpaper")?.let { root.removeView(it) }
+            root?.setBackgroundColor(android.graphics.Color.rgb(0, 128, 128))
+            return
+        }
+'''
+if wallpaper_anchor not in s:
+    raise SystemExit('loadSavedWallpaper anchor not found')
+s = s.replace(wallpaper_anchor, wallpaper_insert, 1)
 ma.write_text(s)
 
 # Registry Editor: local import/export only; remove cloud-sync controls.
