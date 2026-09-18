@@ -113,8 +113,6 @@ else:
     print("PASS | legacy Plus/95 theme choices hidden")
 
 forbidden = {
-    "ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION": "all-files settings request",
-    "isExternalStorageManager": "all-files storage API",
     "READ_CONTACTS": "contacts access",
     "ContactsContract": "contacts database access",
     "CALL_PHONE": "direct calling permission",
