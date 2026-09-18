@@ -166,19 +166,19 @@ main_activity.write_text(s)
 if dialer.exists():
     d = dialer.read_text()
     d = replace_body(d, "callContact", 'onSoundPlay(R.raw.click)\ntry {\n    val intent = Intent(Intent.ACTION_DIAL)\n    intent.data = Uri.parse("tel:$phoneNumber")\n    context.startActivity(intent)\n} catch (e: Exception) {\n    Log.e("DialerApp", "Error opening system dialer", e)\n}')
-    # Replace the complete declaration by function name. The masterpiece generator
-    # can reflow the signature, so do not depend on its exact whitespace/type spelling.
-    search_match = re.search(
-        r'(?m)^(?P<i>[ \\t]*)(?:(?:private|public|protected|internal|override|suspend)\\s+)*fun\\s+searchContacts\\s*\\(',
-        d,
-    )
-    if not search_match:
+    # Replace the complete declaration by function name. Avoid depending on the
+    # generator's exact signature formatting.
+    search_token = "fun searchContacts"
+    search_pos = d.find(search_token)
+    if search_pos < 0:
         raise SystemExit("Dialer searchContacts function not found")
-    search_brace = d.find("{", search_match.end())
+    search_start = d.rfind("\\n", 0, search_pos) + 1
+    search_brace = d.find("{", search_pos)
     if search_brace < 0:
         raise SystemExit("Dialer searchContacts body not found")
     search_end = matching_brace(d, search_brace)
-    indent = search_match.group("i")
+    line_prefix = d[search_start:search_pos]
+    indent = line_prefix[: len(line_prefix) - len(line_prefix.lstrip())]
     replacement = (
         indent + "private fun searchContacts(query: String): List<ContactInfo> {\\n"
         + indent + '    @Suppress("UNUSED_VARIABLE")\\n'
@@ -186,7 +186,7 @@ if dialer.exists():
         + indent + "    return emptyList<ContactInfo>()\\n"
         + indent + "}"
     )
-    d = d[:search_match.start()] + replacement + d[search_end + 1:]
+    d = d[:search_start] + replacement + d[search_end + 1:]
     dialer.write_text(d)
 
 # Legacy floating Quick Glance widget is retained only as a compatibility surface;
