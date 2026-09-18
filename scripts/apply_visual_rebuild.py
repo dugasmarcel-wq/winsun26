@@ -52,10 +52,10 @@ if '"Windows 98" -> WindowsClassic' not in t and '"Windows Classic", "Windows 98
     t = t.replace('fun fromString(value: String?): AppTheme = when (value) {',
                   'fun fromString(value: String?): AppTheme = when (value) {\n            "Windows 98" -> WindowsClassic', 1)
 
-# Exactly four user-selectable environments in the requested order.
+# Exactly three user-selectable environments in the requested order.
 t = re.sub(
     r'fun\s+all\(\)\s*:\s*List<AppTheme>\s*=\s*listOf\([^)]*\)',
-    'fun all(): List<AppTheme> = listOf(WindowsClassic, WindowsXP, WindowsVista, Windows7)',
+    'fun all(): List<AppTheme> = listOf(WindowsClassic, WindowsXP, WindowsVista)',
     t,
     count=1,
 )
@@ -84,6 +84,17 @@ theme_manager.write_text(t)
 # identifiers in source.  This catches appearance/spinner labels created in MainActivity.
 m = main_activity.read_text()
 m = m.replace('"Windows Classic"', '"Windows 98"')
+
+# WINSUNG exposes only Windows 98 / XP / Vista.  The upstream Classic flavour
+# picker (95/98/ME/2000) is intentionally hidden instead of presenting it as a
+# second competing "Windows version" selector.
+m = re.sub(
+    r'private fun shouldShowFlavourSpinner\(theme: AppTheme\? = null\): Boolean \{.*?\n\s*\}',
+    'private fun shouldShowFlavourSpinner(theme: AppTheme? = null): Boolean = false',
+    m,
+    count=1,
+    flags=re.S,
+)
 main_activity.write_text(m)
 
 # Sanity-check the visual shell before compiling.
@@ -104,8 +115,8 @@ missing = [x for x in required if x not in controller_text]
 if missing:
     raise SystemExit('Visual rebuild is incomplete; missing: ' + ', '.join(missing))
 
-if 'fun all(): List<AppTheme> = listOf(WindowsClassic, WindowsXP, WindowsVista, Windows7)' not in t:
-    raise SystemExit('Theme selector was not reduced to exactly Win98/XP/Vista/7')
+if 'fun all(): List<AppTheme> = listOf(WindowsClassic, WindowsXP, WindowsVista)' not in t:
+    raise SystemExit('Theme selector was not reduced to exactly Win98/XP/Vista')
 if 'override fun toString() = "Windows 98"' not in t:
     raise SystemExit('Windows 98 display identity was not applied')
 
