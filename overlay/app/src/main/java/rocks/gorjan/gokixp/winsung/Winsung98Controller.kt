@@ -167,7 +167,7 @@ open class SwipePageFrame(context: Context, private val onSwipe: (Int) -> Unit) 
 data class FixedApp(val label: String, val packages: List<String>, val asset: String)
 val FIXED_APPS = listOf(
     FixedApp("Phone", listOf("com.samsung.android.dialer", "com.google.android.dialer"), "custom_icons_98/Phone.webp"),
-    FixedApp("Signal", listOf("org.thoughtcrime.securesms"), "custom_icons_98/accessibility_window_signal.webp"),
+    FixedApp("Signal", listOf("org.thoughtcrime.securesms"), "custom_icons_98/Mail.webp"),
     FixedApp("Firefox", listOf("org.mozilla.firefox"), "custom_icons/Internet Explorer 6.webp"),
     FixedApp("WhatsApp", listOf("com.whatsapp"), "custom_icons_98/WhatsApp.webp"),
     FixedApp("YouTube Music", listOf("com.google.android.apps.youtube.music"), "custom_icons_programs/YouTube.webp")
