@@ -66,17 +66,23 @@ jobs:
         working-directory: upstream
         run: ./gradlew --no-daemon assembleDebug
 
-      - name: Rename APK
+      - name: Package verified APK
+        shell: bash
         run: |
+          set -euo pipefail
+          src="upstream/app/build/outputs/apk/debug/app-debug.apk"
+          dst="output/WINSUNG-XP-VISTA-debug.apk"
+          test -s "$src"
           mkdir -p output
-          cp upstream/app/build/outputs/apk/debug/app-debug.apk output/WINSUNG-XP-VISTA-debug.apk
-          sha256sum output/WINSUNG98-VISUAL-REBUILD-debug.apk | tee output/SHA256.txt
+          cp "$src" "$dst"
+          test -s "$dst"
+          sha256sum "$dst" | tee output/SHA256.txt
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: WINSUNG-XP-VISTA-APK
           path: |
-            output/WINSUNG98-VISUAL-REBUILD-debug.apk
+            output/WINSUNG-XP-VISTA-debug.apk
             output/SHA256.txt
           if-no-files-found: error
