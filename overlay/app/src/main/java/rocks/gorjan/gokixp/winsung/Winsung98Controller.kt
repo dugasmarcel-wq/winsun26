@@ -196,7 +196,7 @@ class QuickGlancePage(
         setBackgroundColor(Color.rgb(212, 208, 200))
         val scroll = ScrollView(activity).apply { isFillViewport = true; isVerticalScrollBarEnabled = true }
         val root = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-        addView(scroll, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        addView(scroll, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         scroll.addView(root, ScrollView.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         addTopInset(this, root, activity.wdp(10), activity.wdp(8), activity.wdp(10), activity.wdp(10))
 
