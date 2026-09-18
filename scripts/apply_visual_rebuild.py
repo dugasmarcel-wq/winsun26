@@ -88,13 +88,19 @@ m = m.replace('"Windows Classic"', '"Windows 98"')
 # WINSUNG exposes only Windows 98 / XP / Vista.  The upstream Classic flavour
 # picker (95/98/ME/2000) is intentionally hidden instead of presenting it as a
 # second competing "Windows version" selector.
-m = re.sub(
-    r'private fun shouldShowFlavourSpinner\(theme: AppTheme\? = null\): Boolean \{.*?\n\s*\}',
-    'private fun shouldShowFlavourSpinner(theme: AppTheme? = null): Boolean = false',
-    m,
-    count=1,
-    flags=re.S,
-)
+flavour_block = '''    private fun shouldShowFlavourSpinner(theme: AppTheme? = null): Boolean {
+        var checkTheme = theme
+        if(checkTheme == null){
+            checkTheme = themeManager.getSelectedTheme()
+        }
+        return checkTheme is AppTheme.WindowsClassic
+    }'''
+if flavour_block in m:
+    m = m.replace(
+        flavour_block,
+        '    private fun shouldShowFlavourSpinner(theme: AppTheme? = null): Boolean = false',
+        1,
+    )
 main_activity.write_text(m)
 
 # Sanity-check the visual shell before compiling.
