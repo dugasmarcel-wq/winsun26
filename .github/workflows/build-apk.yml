@@ -62,10 +62,6 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x upstream/gradlew
 
-      - name: Show generated compiler context
-        run: |
-          nl -ba upstream/app/src/main/java/rocks/gorjan/gokixp/MainActivity.kt | sed -n '7268,7284p'
-
       - name: Build installable debug APK
         working-directory: upstream
         run: ./gradlew --no-daemon assembleDebug
