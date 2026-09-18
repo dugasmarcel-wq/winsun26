@@ -9,8 +9,8 @@ main = app / 'src/main'
 gradle = app / 'build.gradle.kts'
 s = gradle.read_text()
 s = s.replace('applicationId = "rocks.gorjan.gokixp"', 'applicationId = "com.winsung.launcher"')
-s = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 1', s)
-s = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.0-winsung"', s)
+s = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 2', s)
+s = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.1-winsung"', s)
 # Remove Google Drive/account client dependencies only. Keep Gson because the launcher itself uses it locally.
 s = re.sub(r'\n\s*// Google Drive API\n.*?\n\s*testImplementation', '\n\n    testImplementation', s, flags=re.S)
 gradle.write_text(s)
@@ -24,9 +24,7 @@ for perm in [
     'android.permission.READ_SYNC_SETTINGS', 'android.permission.WRITE_SYNC_SETTINGS',
     'android.permission.CALL_PHONE', 'android.permission.READ_CONTACTS',
     'android.permission.READ_EXTERNAL_STORAGE', 'android.permission.WRITE_EXTERNAL_STORAGE',
-    'android.permission.READ_MEDIA_AUDIO', 'android.permission.READ_MEDIA_VIDEO', 'android.permission.READ_MEDIA_IMAGES',
-    'android.permission.MANAGE_EXTERNAL_STORAGE', 'android.permission.QUERY_ALL_PACKAGES',
-    'android.permission.REQUEST_DELETE_PACKAGES'
+    'android.permission.READ_MEDIA_AUDIO', 'android.permission.READ_MEDIA_VIDEO', 'android.permission.READ_MEDIA_IMAGES'
 ]:
     s = re.sub(r'\s*<uses-permission\s+android:name="' + re.escape(perm) + r'"[^>]*/>', '', s, flags=re.S)
 s = re.sub(r'\s*<permission\s+android:name="rocks\.gorjan\.gokixp\.permission\.READ_WP8_MIGRATION".*?/>', '', s, flags=re.S)
@@ -100,25 +98,44 @@ s = re.sub(r'private fun checkForUpdates\(showCheckingNotification: Boolean = fa
 s = s.replace('wasWindowsPhoneUser = WP8Migration.captureIfNeeded(this)', 'wasWindowsPhoneUser = false')
 # Make every legacy fallback default Classic too.
 s = s.replace('getString("selected_theme", "Windows XP") ?: "Windows XP"', 'getString("selected_theme", "Windows Classic") ?: "Windows Classic"')
-# Factory-default Windows 98 desktop is solid classic teal.  Patch the actual
-# wallpaper loader, not an earlier onCreate background assignment, so the
-# upstream default-wallpaper code cannot paint over the teal afterward.
-wallpaper_anchor = '''        val (pathKey, uriKey) = getCurrentThemeWallpaperKeys()
-'''
-wallpaper_insert = '''        val (pathKey, uriKey) = getCurrentThemeWallpaperKeys()
+# Factory-default Windows 98 desktop is solid classic teal. Patch the real
+# loadSavedWallpaper() function specifically (there are several wallpaper-key
+# lookups elsewhere in MainActivity).
+wallpaper_pattern = re.compile(
+    r'(private fun loadSavedWallpaper\(\) \{\s*\n\s*val prefs = getSharedPreferences\(PREFS_NAME, MODE_PRIVATE\)\s*\n\s*val \(pathKey, uriKey\) = getCurrentThemeWallpaperKeys\(\))'
+)
+wallpaper_insert = r'''\1
 
-        if (themeManager.getSelectedTheme() is AppTheme.WindowsClassic &&
-            !prefs.contains(KEY_WALLPAPER_CLASSIC_PATH) &&
-            !prefs.contains(KEY_WALLPAPER_CLASSIC_URI)) {
-            val root = findViewById<android.widget.RelativeLayout>(R.id.main_background)
-            root?.findViewWithTag<android.widget.ImageView>("wallpaper")?.let { root.removeView(it) }
-            root?.setBackgroundColor(android.graphics.Color.rgb(0, 128, 128))
-            return
-        }
-'''
-if wallpaper_anchor not in s:
-    raise SystemExit('loadSavedWallpaper anchor not found')
-s = s.replace(wallpaper_anchor, wallpaper_insert, 1)
+        if (themeManager.getSelectedTheme() is AppTheme.WindowsClassic) {
+            val migrationKey = "winsung_classic_teal_default_v2"
+            val existingPath = prefs.getString(KEY_WALLPAPER_CLASSIC_PATH, null)
+            val existingUri = prefs.getString(KEY_WALLPAPER_CLASSIC_URI, null)
+
+            // Migrate the inherited Jovanovski Classic default to WINSUNG teal once,
+            // but preserve wallpapers the user actually chose.
+            if (!prefs.getBoolean(migrationKey, false)) {
+                if (existingUri == null &&
+                    (existingPath == null || existingPath == "wallpapers/Windows ME (m).jpg")) {
+                    prefs.edit {
+                        remove(KEY_WALLPAPER_CLASSIC_PATH)
+                        putBoolean(migrationKey, true)
+                    }
+                } else {
+                    prefs.edit { putBoolean(migrationKey, true) }
+                }
+            }
+
+            if (prefs.getString(KEY_WALLPAPER_CLASSIC_URI, null) == null &&
+                prefs.getString(KEY_WALLPAPER_CLASSIC_PATH, null) == null) {
+                val root = findViewById<android.widget.RelativeLayout>(R.id.main_background)
+                root?.findViewWithTag<android.widget.ImageView>("wallpaper")?.let { root.removeView(it) }
+                root?.setBackgroundColor(android.graphics.Color.rgb(0, 128, 128))
+                return
+            }
+        }'''
+s, wallpaper_count = wallpaper_pattern.subn(wallpaper_insert, s, count=1)
+if wallpaper_count != 1:
+    raise SystemExit(f'Could not patch loadSavedWallpaper safely (count={wallpaper_count})')
 ma.write_text(s)
 
 # Registry Editor: local import/export only; remove cloud-sync controls.
