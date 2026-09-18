@@ -195,7 +195,7 @@ if dialer.exists():
     search_pos = d.find(search_token)
     if search_pos < 0:
         raise SystemExit("Dialer searchContacts function not found")
-    search_start = d.rfind("\\n", 0, search_pos) + 1
+    search_start = d.rfind("\n", 0, search_pos) + 1
     search_brace = d.find("{", search_pos)
     if search_brace < 0:
         raise SystemExit("Dialer searchContacts body not found")
@@ -203,10 +203,10 @@ if dialer.exists():
     line_prefix = d[search_start:search_pos]
     indent = line_prefix[: len(line_prefix) - len(line_prefix.lstrip())]
     replacement = (
-        indent + "private fun searchContacts(query: String): List<ContactInfo> {\\n"
-        + indent + '    @Suppress("UNUSED_VARIABLE")\\n'
-        + indent + "    val ignoredQuery = query\\n"
-        + indent + "    return emptyList<ContactInfo>()\\n"
+        indent + "private fun searchContacts(query: String): List<ContactInfo> {\n"
+        + indent + '    @Suppress("UNUSED_VARIABLE")\n'
+        + indent + "    val ignoredQuery = query\n"
+        + indent + "    return emptyList<ContactInfo>()\n"
         + indent + "}"
     )
     d = d[:search_start] + replacement + d[search_end + 1:]
