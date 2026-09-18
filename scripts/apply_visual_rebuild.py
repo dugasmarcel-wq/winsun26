@@ -85,6 +85,48 @@ theme_manager.write_text(t)
 m = main_activity.read_text()
 m = m.replace('"Windows Classic"', '"Windows 98"')
 
+# A launcher must actually enumerate launchable applications. On a fresh install
+# seed the native XP/Vista pinned area with useful built-in programs; once the
+# user changes pins, their saved list is left alone.
+pinned_anchor = '''    private fun getPinnedApps(): List<String> {
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+'''
+pinned_insert = '''    private fun getPinnedApps(): List<String> {
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+
+        if (!prefs.contains(KEY_PINNED_APPS)) {
+            val defaults = listOf(
+                "system.internet_explorer",
+                "system.notepad",
+                "system.wmp",
+                "system.clock",
+                "system.minesweeper",
+                "system.solitare",
+                "system.pinball"
+            )
+            prefs.edit().putString(KEY_PINNED_APPS, defaults.joinToString(",")).apply()
+        }
+'''
+if pinned_anchor not in m:
+    raise SystemExit('getPinnedApps anchor not found')
+m = m.replace(pinned_anchor, pinned_insert, 1)
+
+# Clippy/agents are not part of the custom Windows 98 default desktop. Preserve
+# Jovanovski's normal agent behavior for XP and Vista.
+m = m.replace(
+    '        agentView.visibility = if (isRoverVisible()) View.VISIBLE else View.GONE',
+    '        agentView.visibility = if (themeManager.getSelectedTheme() is AppTheme.WindowsClassic) View.GONE else if (isRoverVisible()) View.VISIBLE else View.GONE',
+    1,
+)
+
+# The inherited updater is removed, so don't leave a dead Windows Update row in
+# XP/Vista Start menus.
+m = m.replace(
+    '            val updateItem = findViewById<LinearLayout>(R.id.windows_update_item)',
+    '            val updateItem = findViewById<LinearLayout>(R.id.windows_update_item)\n            updateItem?.visibility = View.GONE',
+    1,
+)
+
 # WINSUNG exposes only Windows 98 / XP / Vista.  The upstream Classic flavour
 # picker (95/98/ME/2000) is intentionally hidden instead of presenting it as a
 # second competing "Windows version" selector.
@@ -103,14 +145,14 @@ if flavour_block in m:
     )
 main_activity.write_text(m)
 
-# Final manifest scrub after every generator/hardening pass.  The launcher can
-# display installed apps without holding package-uninstall authority, and the
-# notification listener uses the service-level bind permission rather than a
-# uses-permission grant.
+# Final manifest scrub after every generator/hardening pass. The notification
+# listener uses the service-level bind permission rather than a uses-permission
+# grant. QUERY_ALL_PACKAGES is required by a launcher, REQUEST_DELETE_PACKAGES
+# backs the user-confirmed uninstall action, and MANAGE_EXTERNAL_STORAGE backs
+# the explicitly-opened Windows Explorer.
 manifest = main / "AndroidManifest.xml"
 ms = manifest.read_text()
 for perm in (
-    "android.permission.REQUEST_DELETE_PACKAGES",
     "android.permission.BIND_NOTIFICATION_LISTENER_SERVICE",
 ):
     ms = re.sub(
@@ -119,6 +161,13 @@ for perm in (
         ms,
         flags=re.S,
     )
+for required_perm in (
+    "android.permission.QUERY_ALL_PACKAGES",
+    "android.permission.REQUEST_DELETE_PACKAGES",
+    "android.permission.MANAGE_EXTERNAL_STORAGE",
+):
+    if required_perm not in ms:
+        raise SystemExit(f"Required launcher capability missing from manifest: {required_perm}")
 manifest.write_text(ms)
 
 # Sanity-check the visual shell before compiling.
