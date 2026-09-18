@@ -67,7 +67,6 @@ for permission in (
     "READ_MEDIA_AUDIO",
     "READ_MEDIA_VIDEO",
     "READ_MEDIA_IMAGES",
-    "MANAGE_EXTERNAL_STORAGE",
 ):
     s = s.replace(
         f"android.Manifest.permission.{permission}",
@@ -75,10 +74,9 @@ for permission in (
     )
     s = s.replace(f"Manifest.permission.{permission}", '"winsung.retired.NO_MEDIA_STORAGE_ACCESS"')
 
-s = s.replace("Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION", "Settings.ACTION_APPLICATION_DETAILS_SETTINGS")
-s = s.replace("Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION", "Settings.ACTION_APPLICATION_DETAILS_SETTINGS")
-s = s.replace("android.os.Environment.isExternalStorageManager()", "false")
-s = s.replace("Environment.isExternalStorageManager()", "false")
+# Keep the Explorer all-files settings flow intact. Media-player permission
+# callbacks above stay disabled, but My Computer may request its own explicit
+# all-files access when the user opens Explorer.
 
 # Structural invariants: both native player entry points must survive this pass.
 for required in (
@@ -101,12 +99,8 @@ for token in (
     "READ_MEDIA_AUDIO",
     "READ_MEDIA_VIDEO",
     "READ_MEDIA_IMAGES",
-    "MANAGE_EXTERNAL_STORAGE",
-    "ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION",
-    "ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION",
-    "isExternalStorageManager",
 ):
     if token in s:
         raise SystemExit(f"Legacy broad media/storage token still present in MainActivity: {token}")
 
-print("Legacy Winamp/WMP broad media permission callbacks removed without altering player windows")
+print("Legacy Winamp/WMP media permission callbacks removed; Explorer storage flow preserved")
