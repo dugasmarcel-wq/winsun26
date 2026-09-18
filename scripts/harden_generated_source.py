@@ -150,7 +150,10 @@ s = re.sub(r'\n\s*CALENDAR_PERMISSION_REQUEST_CODE\s*->\s*if\b.*?\n\s*AUDIO_PERM
 s = s.replace('// QUERY_ALL_PACKAGES is held, so "not found" here means genuinely not installed\n        // rather than merely not visible to this app.', '// Package lookups are limited to launcher-visible/explicitly queried apps.')
 
 # Registry Editor cleanup is a no-op upstream and may be reintroduced by the masterpiece pass.
-s = re.sub(r'(?m)^\s*regeditApp\.cleanup\(\)\s*s = re.sub(
+s = re.sub(r'(?m)^\s*regeditApp\.cleanup\(\)\s*$', '', s)
+
+# Local-first welcome text and no remote changelog polling.
+s = re.sub(
     r'^\s*val welcomeMessage = "Windows has updated to version \$versionName,.*?"$',
     lambda _: '        val welcomeMessage = "Welcome to WINSUNG $versionName.\\n\\nThis is a local-first Windows-style launcher build. Network access is used only for features you directly open, such as browsing and Quick Glance news.\\n\\nUse the desktop, Start menu, and appearance controls to switch between the available Windows environments."',
     s, flags=re.M,
