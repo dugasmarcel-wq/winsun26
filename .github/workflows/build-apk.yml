@@ -6,7 +6,7 @@ on:
     branches: [ main, winsung-xp-vista-rebuild, winsung-real-fix ]
 
 concurrency:
-  group: winsung-build-${{ github.ref }}
+  group: winsung-build-${{ github.sha }}
   cancel-in-progress: true
 
 jobs:
