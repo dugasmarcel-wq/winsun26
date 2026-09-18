@@ -5,6 +5,10 @@ on:
   push:
     branches: [ main, winsung-xp-vista-rebuild ]
 
+concurrency:
+  group: winsung-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
