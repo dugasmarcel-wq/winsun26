@@ -25,10 +25,29 @@ for perm in [
     'android.permission.CALL_PHONE', 'android.permission.READ_CONTACTS',
     'android.permission.READ_EXTERNAL_STORAGE', 'android.permission.WRITE_EXTERNAL_STORAGE',
     'android.permission.READ_MEDIA_AUDIO', 'android.permission.READ_MEDIA_VIDEO', 'android.permission.READ_MEDIA_IMAGES',
-    'android.permission.MANAGE_EXTERNAL_STORAGE'
+    'android.permission.MANAGE_EXTERNAL_STORAGE', 'android.permission.QUERY_ALL_PACKAGES',
+    'android.permission.REQUEST_DELETE_PACKAGES'
 ]:
     s = re.sub(r'\s*<uses-permission\s+android:name="' + re.escape(perm) + r'"[^>]*/>', '', s, flags=re.S)
 s = re.sub(r'\s*<permission\s+android:name="rocks\.gorjan\.gokixp\.permission\.READ_WP8_MIGRATION".*?/>', '', s, flags=re.S)
+
+# Android 11+ package visibility: see launchable apps without QUERY_ALL_PACKAGES.
+# The explicit packages cover the five fixed Win98 taskbar targets even if a
+# vendor launcher intent is unusual.
+if '<queries>' not in s:
+    queries = '''\n    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <package android:name="com.samsung.android.dialer" />
+        <package android:name="com.google.android.dialer" />
+        <package android:name="org.thoughtcrime.securesms" />
+        <package android:name="org.mozilla.firefox" />
+        <package android:name="com.whatsapp" />
+        <package android:name="com.google.android.apps.youtube.music" />
+    </queries>\n'''
+    s = s.replace('>', '>' + queries, 1)
 s = re.sub(r'\s*<!-- Accessibility Service for screen locking -->\s*<service\s+android:name="\.LockScreenAccessibilityService".*?</service>', '', s, flags=re.S)
 s = re.sub(r'\s*<!--\s*Hands the Windows Phone.*?<provider\s+android:name="\.WP8MigrationProvider".*?/>', '', s, flags=re.S)
 s = s.replace('android:allowBackup="true"', 'android:allowBackup="false"')
