@@ -490,6 +490,13 @@ class Winsung98Controller(private val activity: MainActivity) {
     private val overlay = FrameLayout(activity)
     private val dock = LinearLayout(activity)
     private val dots = LinearLayout(activity)
+    private val topSystemChrome = View(activity).apply {
+        setBackgroundColor(FACE)
+        visibility = View.GONE
+        elevation = activity.wdp(220).toFloat()
+        isClickable = false
+        isFocusable = false
+    }
     private val badges = mutableMapOf<String, TextView>()
     private val ui = Handler(Looper.getMainLooper())
     private val originalStatusBarColor = activity.window.statusBarColor
@@ -509,6 +516,21 @@ class Winsung98Controller(private val activity: MainActivity) {
         val fw = bg.findViewById<View>(R.id.floating_windows_container)
         bg.addView(overlay, bg.indexOfChild(fw).coerceAtLeast(1), lp)
         listOf(quick, second, aol1, aol2).forEach { overlay.addView(it, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)); it.visibility = View.GONE }
+
+        bg.addView(
+            topSystemChrome,
+            RelativeLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                1
+            ).apply { addRule(RelativeLayout.ALIGN_PARENT_TOP) }
+        )
+        topSystemChrome.post {
+            val inset = topSystemChrome.rootWindowInsets?.systemWindowInsetTop ?: 0
+            val p = topSystemChrome.layoutParams
+            p.height = inset.coerceAtLeast(1)
+            topSystemChrome.layoutParams = p
+        }
+
         buildDots(); buildDock(); updateDots()
     }
 
@@ -528,7 +550,9 @@ class Winsung98Controller(private val activity: MainActivity) {
             activity.window.navigationBarColor = originalNavigationBarColor
             activity.window.decorView.systemUiVisibility = originalSystemUiVisibility
             activity.findViewById<View>(R.id.root_container)?.setBackgroundColor(Color.BLACK)
+            activity.findViewById<View>(R.id.gesture_bar_background)?.setBackgroundColor(Color.BLACK)
             activity.findViewById<View>(R.id.system_tray)?.visibility = View.VISIBLE
+            topSystemChrome.visibility = View.GONE
         } else {
             // Windows 98 owns the full visual edge.  The Android status/navigation
             // areas use the same classic face colour so there is no black strip above
@@ -541,6 +565,15 @@ class Winsung98Controller(private val activity: MainActivity) {
             }
             activity.window.decorView.systemUiVisibility = flags
             activity.findViewById<View>(R.id.root_container)?.setBackgroundColor(FACE)
+            activity.findViewById<View>(R.id.gesture_bar_background)?.setBackgroundColor(FACE)
+            topSystemChrome.visibility = View.VISIBLE
+            topSystemChrome.post {
+                val inset = topSystemChrome.rootWindowInsets?.systemWindowInsetTop ?: 0
+                val p = topSystemChrome.layoutParams
+                p.height = inset.coerceAtLeast(1)
+                topSystemChrome.layoutParams = p
+                topSystemChrome.bringToFront()
+            }
 
             attachDockToTaskbar()
             dock.visibility = View.VISIBLE
