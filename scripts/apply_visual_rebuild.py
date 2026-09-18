@@ -167,6 +167,15 @@ for required_perm in (
     "android.permission.MANAGE_EXTERNAL_STORAGE",
 ):
     if required_perm not in ms:
+        declaration = f'    <uses-permission android:name="{required_perm}" />\n'
+        ms = ms.replace("    <application", declaration + "\n    <application", 1)
+
+for required_perm in (
+    "android.permission.QUERY_ALL_PACKAGES",
+    "android.permission.REQUEST_DELETE_PACKAGES",
+    "android.permission.MANAGE_EXTERNAL_STORAGE",
+):
+    if required_perm not in ms:
         raise SystemExit(f"Required launcher capability missing from manifest: {required_perm}")
 manifest.write_text(ms)
 
