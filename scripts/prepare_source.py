@@ -23,7 +23,6 @@ for perm in [
     'android.permission.READ_CALENDAR', 'android.permission.WRITE_CALENDAR',
     'android.permission.READ_SYNC_SETTINGS', 'android.permission.WRITE_SYNC_SETTINGS',
     'android.permission.CALL_PHONE', 'android.permission.READ_CONTACTS',
-    'android.permission.READ_EXTERNAL_STORAGE', 'android.permission.WRITE_EXTERNAL_STORAGE',
     'android.permission.READ_MEDIA_AUDIO', 'android.permission.READ_MEDIA_VIDEO', 'android.permission.READ_MEDIA_IMAGES'
 ]:
     s = re.sub(r'\s*<uses-permission\s+android:name="' + re.escape(perm) + r'"[^>]*/>', '', s, flags=re.S)
