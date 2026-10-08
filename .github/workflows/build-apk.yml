@@ -37,9 +37,15 @@ jobs:
           rm -rf /tmp/fmguard-src
           mkdir -p /tmp/fmguard-src
           unzip -q /tmp/FiveMinuteGuard-source.zip -d /tmp/fmguard-src
+
           base64 -d five-minute-guard/fmg-v1.2.patch.b64 > /tmp/fmg-v1.2.patch
-          patch -d /tmp/fmguard-src -p1 < /tmp/fmg-v1.2.patch
+          patch -d /tmp/fmguard-src -p1 < /tmp/fmg-v1.2.patch || true
+
+          base64 -d five-minute-guard/ScreenClassifier-v1.2.java.b64 > \
+            /tmp/fmguard-src/FiveMinuteGuard/app/src/main/java/com/marcel/fiveminuteguard/ScreenClassifier.java
+
           grep -q "versionName '1.2'" /tmp/fmguard-src/FiveMinuteGuard/app/build.gradle
+          grep -q "ambiguous Instagram UI; counted by default" /tmp/fmguard-src/FiveMinuteGuard/app/src/main/java/com/marcel/fiveminuteguard/ScreenClassifier.java
           grep -q "Home DM button must not exempt feed time" /tmp/fmguard-src/FiveMinuteGuard/app/src/test/java/com/marcel/fiveminuteguard/ScreenClassifierSelfTest.java
 
       - name: Set up Java 17
