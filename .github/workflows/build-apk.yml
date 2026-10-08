@@ -1,92 +1,84 @@
-name: Build WINSUNG APK
+name: Build Five Minute Guard APK
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main, winsung-xp-vista-rebuild, winsung-real-fix ]
+    branches: [ five-minute-guard-build ]
+  workflow_dispatch:
 
 concurrency:
-  group: winsung-build-${{ github.sha }}
+  group: five-minute-guard-build-${{ github.sha }}
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout WINSUNG build repo
+      - name: Checkout build branch
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Checkout Jovanovski Windows Launcher v2.1.0
+      - name: Reconstruct source archive
+        shell: bash
         run: |
-          git clone --depth 1 --branch v2.1.0 https://github.com/jovanovski/windowslauncher.git upstream
-
-      - name: Apply privacy baseline
-        run: python3 scripts/prepare_source.py
-
-      - name: Restore and apply known-good WINSUNG masterpiece generator
-        run: |
-          git show 3d3cc920281463e52c27ceaf965c982504f96483:payload/masterpiece.py.gz.b64 | base64 -d | gzip -d > /tmp/add_masterpiece.py
-          python3 -m py_compile /tmp/add_masterpiece.py
-          python3 /tmp/add_masterpiece.py
-
-      - name: Harden generated native source
-        run: python3 scripts/harden_generated_source.py
-
-      - name: Remove legacy media/storage permission callbacks
-        run: python3 scripts/remove_legacy_media_permissions.py
-
-      - name: Apply visual-first Win98 reconstruction
-        run: python3 scripts/apply_visual_rebuild.py
-
-      - name: Audit master specification markers
-        run: python3 scripts/spec_audit.py
-
-      - name: Privacy audit source tree
-        run: |
-          echo "Manifest permissions:"
-          grep -n "uses-permission" upstream/app/src/main/AndroidManifest.xml || true
-          echo "Blocked inherited endpoints/components (must be empty):"
-          if grep -R -n -E "api\.github\.com/repos/jovanovski|open-meteo|getaircare|gorjan\.rocks|tetyys\.com|GoogleDriveHelper|GoogleSignIn|LockScreenAccessibilityService" upstream/app/src/main/java upstream/app/src/main/AndroidManifest.xml; then
-            echo "Privacy audit failed: inherited endpoint/component remains"
-            exit 1
-          fi
+          set -euo pipefail
+          cat five-minute-guard/parts/part00 \
+              five-minute-guard/parts/part01 \
+              five-minute-guard/parts/part02 \
+              five-minute-guard/parts/part03 \
+              five-minute-guard/parts/part04 \
+              five-minute-guard/parts/part05 > /tmp/FiveMinuteGuard.b64
+          test "$(wc -c < /tmp/FiveMinuteGuard.b64)" -eq 29520
+          base64 -d /tmp/FiveMinuteGuard.b64 > /tmp/FiveMinuteGuard-source.zip
+          unzip -t /tmp/FiveMinuteGuard-source.zip
+          mkdir -p /tmp/fmguard-src
+          unzip -q /tmp/FiveMinuteGuard-source.zip -d /tmp/fmguard-src
+          test -f /tmp/fmguard-src/FiveMinuteGuard/settings.gradle
+          test -f /tmp/fmguard-src/FiveMinuteGuard/app/src/main/AndroidManifest.xml
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
-          cache-dependency-path: upstream/**/*.gradle*
 
-      - name: Make Gradle wrapper executable
-        run: chmod +x upstream/gradlew
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Build installable debug APK
-        working-directory: upstream
-        run: ./gradlew --no-daemon assembleDebug
+      - name: Install Android SDK platform
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;35.0.0"
 
-      - name: Package verified APK
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Build APK
+        working-directory: /tmp/fmguard-src/FiveMinuteGuard
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Verify and package APK
         shell: bash
         run: |
           set -euo pipefail
-          src="upstream/app/build/outputs/apk/debug/app-debug.apk"
-          dst="output/WINSUNG-1.1-debug.apk"
+          src="/tmp/fmguard-src/FiveMinuteGuard/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$src"
           mkdir -p output
-          cp "$src" "$dst"
-          test -s "$dst"
-          sha256sum "$dst" | tee output/SHA256.txt
+          cp "$src" output/FiveMinuteGuard-v1.1.apk
+          test -s output/FiveMinuteGuard-v1.1.apk
+          if [ -x "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" ]; then
+            "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --verbose output/FiveMinuteGuard-v1.1.apk
+          fi
+          sha256sum output/FiveMinuteGuard-v1.1.apk | tee output/SHA256.txt
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: WINSUNG-1.1-APK
+          name: FiveMinuteGuard-v1.1-APK
           path: |
-            output/WINSUNG-1.1-debug.apk
+            output/FiveMinuteGuard-v1.1.apk
             output/SHA256.txt
           if-no-files-found: error
