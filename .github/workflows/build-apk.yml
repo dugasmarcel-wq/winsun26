@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: five-minute-guard-build-${{ github.sha }}
+  group: five-minute-guard-build
   cancel-in-progress: true
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
       - name: Checkout build branch
         uses: actions/checkout@v4
 
-      - name: Reconstruct source archive
+      - name: Reconstruct and patch source
         shell: bash
         run: |
           set -euo pipefail
@@ -34,16 +34,30 @@ jobs:
           test "$(wc -c < /tmp/FiveMinuteGuard.b64)" -eq 29520
           base64 -d /tmp/FiveMinuteGuard.b64 > /tmp/FiveMinuteGuard-source.zip
           unzip -t /tmp/FiveMinuteGuard-source.zip
+          rm -rf /tmp/fmguard-src
           mkdir -p /tmp/fmguard-src
           unzip -q /tmp/FiveMinuteGuard-source.zip -d /tmp/fmguard-src
-          test -f /tmp/fmguard-src/FiveMinuteGuard/settings.gradle
-          test -f /tmp/fmguard-src/FiveMinuteGuard/app/src/main/AndroidManifest.xml
+          base64 -d five-minute-guard/fmg-v1.2.patch.b64 > /tmp/fmg-v1.2.patch
+          patch -d /tmp/fmguard-src -p1 < /tmp/fmg-v1.2.patch
+          grep -q "versionName '1.2'" /tmp/fmguard-src/FiveMinuteGuard/app/build.gradle
+          grep -q "Home DM button must not exempt feed time" /tmp/fmguard-src/FiveMinuteGuard/app/src/test/java/com/marcel/fiveminuteguard/ScreenClassifierSelfTest.java
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Run classifier regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/fmg-tests
+          javac -d /tmp/fmg-tests \
+            /tmp/fmguard-src/FiveMinuteGuard/app/src/main/java/com/marcel/fiveminuteguard/NodeSignal.java \
+            /tmp/fmguard-src/FiveMinuteGuard/app/src/main/java/com/marcel/fiveminuteguard/ScreenClassifier.java \
+            /tmp/fmguard-src/FiveMinuteGuard/app/src/test/java/com/marcel/fiveminuteguard/ScreenClassifierSelfTest.java
+          java -cp /tmp/fmg-tests com.marcel.fiveminuteguard.ScreenClassifierSelfTest
 
       - name: Install Android SDK platform
         shell: bash
@@ -70,16 +84,16 @@ jobs:
           src="/tmp/fmguard-src/FiveMinuteGuard/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$src"
           mkdir -p output
-          cp "$src" output/FiveMinuteGuard-v1.1.apk
-          test -s output/FiveMinuteGuard-v1.1.apk
-          "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --verbose output/FiveMinuteGuard-v1.1.apk
-          sha256sum output/FiveMinuteGuard-v1.1.apk | tee output/SHA256.txt
+          cp "$src" output/FiveMinuteGuard-v1.2.apk
+          test -s output/FiveMinuteGuard-v1.2.apk
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --verbose output/FiveMinuteGuard-v1.2.apk
+          sha256sum output/FiveMinuteGuard-v1.2.apk | tee output/SHA256.txt
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FiveMinuteGuard-v1.1-APK
+          name: FiveMinuteGuard-v1.2-APK
           path: |
-            output/FiveMinuteGuard-v1.1.apk
+            output/FiveMinuteGuard-v1.2.apk
             output/SHA256.txt
           if-no-files-found: error
