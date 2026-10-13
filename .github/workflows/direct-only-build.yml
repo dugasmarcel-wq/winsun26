@@ -1,4 +1,4 @@
-name: Direct Only S26 APK
+name: Direct Only S26 v0.2 APK
 on:
   push:
     branches:
@@ -22,11 +22,19 @@ jobs:
           gradle-version: '8.13'
       - name: Extract Direct Only app
         run: mkdir -p direct-only-project && unzip -q direct-only-source.zip -d direct-only-project
+      - name: Apply v0.2 video swipe-blocking fix
+        run: |
+          unzip -oq direct-only-v0.2-patch.zip -d direct-only-project
+          grep -q "versionName '0.2.0'" direct-only-project/app/build.gradle
+          grep -q "blockingGlass()" direct-only-project/app/src/main/java/dev/directonly/MainActivity.java
+          node --check direct-only-project/app/src/main/assets/direct_guard.js
+          node --check direct-only-project/app/src/main/assets/reel_guard.js
+          bash direct-only-project/scripts/test-url-policy.sh
       - name: Build APK
         run: gradle --no-daemon -p direct-only-project :app:assembleDebug --stacktrace
       - name: Upload Direct Only APK
         uses: actions/upload-artifact@v4
         with:
-          name: DirectOnly-S26-install-APK
+          name: DirectOnly-S26-v0.2.0-APK
           path: direct-only-project/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
