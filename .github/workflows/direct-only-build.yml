@@ -1,41 +1,100 @@
-name: Direct Only S26 v0.2 APK
+name: Direct Only S26 Signed Update
 on:
   push:
-    branches:
-      - direct-only-android-build
+    branches: [direct-only-android-build]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-      - name: Gradle
+      - name: Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Extract Direct Only app
-        run: mkdir -p direct-only-project && unzip -q direct-only-source.zip -d direct-only-project
-      - name: Apply v0.2 video swipe-blocking fix
+      - name: Unpack Direct Only v0.3
         run: |
-          unzip -oq direct-only-v0.2-patch.zip -d direct-only-project
-          grep -q "versionName '0.2.0'" direct-only-project/app/build.gradle
-          grep -q "blockingGlass()" direct-only-project/app/src/main/java/dev/directonly/MainActivity.java
+          mkdir -p direct-only-project
+          unzip -q direct-only-v0.3-source.zip -d direct-only-project
+          test -f direct-only-project/app/src/main/java/dev/directonly/Updater.java
+          bash direct-only-project/scripts/test-url-policy.sh
           node --check direct-only-project/app/src/main/assets/direct_guard.js
           node --check direct-only-project/app/src/main/assets/reel_guard.js
-      - name: Fix detached Reel teardown
-        run: python3 direct-only-patches/reel-cleanup.py
-      - name: Build APK
-        run: gradle --no-daemon -p direct-only-project :app:assembleDebug --stacktrace
-      - name: Upload Direct Only APK
+      - name: Restore stable Android signing key
+        uses: actions/cache/restore@v4
+        id: key_cache
+        with:
+          path: .directonly-signing
+          key: directonly-personal-release-key-v1
+      - name: Create signing key if none was previously saved
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .directonly-signing
+          if [ ! -s .directonly-signing/keystore.p12 ]; then
+            # This keystore is NOT committed to the public repository.
+            openssl rand -hex 24 > .directonly-signing/password
+            keytool -genkeypair -noprompt \
+              -keystore .directonly-signing/keystore.p12 -storetype PKCS12 \
+              -alias directonly -storepass "$(cat .directonly-signing/password)" \
+              -keypass "$(cat .directonly-signing/password)" \
+              -keyalg RSA -keysize 3072 -validity 10000 \
+              -dname 'CN=Direct Only, O=Direct Only Updates'
+          fi
+          test -s .directonly-signing/password
+          echo "::add-mask::$(cat .directonly-signing/password)"
+          echo "ANDROID_SIGNING_KEYSTORE=$GITHUB_WORKSPACE/.directonly-signing/keystore.p12" >> "$GITHUB_ENV"
+          echo "SIGNING_STORE_PASSWORD=$(cat .directonly-signing/password)" >> "$GITHUB_ENV"
+          echo "SIGNING_KEY_ALIAS=directonly" >> "$GITHUB_ENV"
+          echo "SIGNING_KEY_PASSWORD=$(cat .directonly-signing/password)" >> "$GITHUB_ENV"
+      - name: Save signing key in private workflow cache
+        if: steps.key_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .directonly-signing
+          key: directonly-personal-release-key-v1
+      - name: Build signed release APK
+        run: gradle --no-daemon -p direct-only-project :app:assembleRelease
+      - name: Verify signed APK and version
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=direct-only-project/app/build/outputs/apk/release/app-release.apk
+          test -s "$apk"
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --verbose "$apk"
+          mkdir -p dist
+          cp "$apk" dist/DirectOnly-S26-v0.3.0.apk
+          sha256sum dist/*.apk | tee dist/SHA256.txt
+      - name: Upload signed APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: DirectOnly-S26-v0.2.0-APK
-          path: direct-only-project/app/build/outputs/apk/debug/app-debug.apk
+          name: DirectOnly-S26-v0.3.0-signed-APK
+          path: dist/*
           if-no-files-found: error
+      - name: Publish versioned GitHub Release for automatic updates
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view directonly-v0.3.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Release exists; refusing to overwrite an existing signed APK.'
+            exit 0
+          fi
+          gh release create directonly-v0.3.0 dist/DirectOnly-S26-v0.3.0.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title 'Direct Only v0.3.0' \
+            --notes 'Automatic release checks, verified APK downloads and Android install prompt. First signed release; older versions may require one final uninstall.'
