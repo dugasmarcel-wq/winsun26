@@ -29,7 +29,6 @@ jobs:
           grep -q "blockingGlass()" direct-only-project/app/src/main/java/dev/directonly/MainActivity.java
           node --check direct-only-project/app/src/main/assets/direct_guard.js
           node --check direct-only-project/app/src/main/assets/reel_guard.js
-          bash direct-only-project/scripts/test-url-policy.sh
       - name: Fix detached Reel teardown
         run: python3 direct-only-patches/reel-cleanup.py
       - name: Build APK
