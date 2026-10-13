@@ -16,8 +16,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
       - name: Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
