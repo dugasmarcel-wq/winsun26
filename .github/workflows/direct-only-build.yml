@@ -30,6 +30,8 @@ jobs:
           node --check direct-only-project/app/src/main/assets/direct_guard.js
           node --check direct-only-project/app/src/main/assets/reel_guard.js
           bash direct-only-project/scripts/test-url-policy.sh
+      - name: Fix detached Reel teardown
+        run: python3 direct-only-patches/reel-cleanup.py
       - name: Build APK
         run: gradle --no-daemon -p direct-only-project :app:assembleDebug --stacktrace
       - name: Upload Direct Only APK
