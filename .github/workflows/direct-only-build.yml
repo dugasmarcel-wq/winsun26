@@ -79,7 +79,7 @@ jobs:
           test -s "$apk"
           "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --verbose "$apk"
           mkdir -p dist
-          cp "$apk" dist/DirectOnly-S26-v0.7.0.apk
+          cp "$apk" dist/DirectOnly-S26-v0.8.0.apk
           sha256sum dist/*.apk | tee dist/SHA256.txt
       - name: Prove signing certificate matches installed v0.7
         env:
@@ -118,7 +118,7 @@ jobs:
             echo 'Release exists; refusing to overwrite an existing signed APK.'
             exit 0
           fi
-          gh release create directonly-v0.8.0 dist/DirectOnly-S26-v0.7.0.apk \
+          gh release create directonly-v0.8.0 dist/DirectOnly-S26-v0.8.0.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title 'Direct Only v0.8.0' \
