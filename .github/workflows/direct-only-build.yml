@@ -24,37 +24,39 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Unpack Direct Only v0.7 source
+      - name: Unpack original v0.6 interface
         run: |
           mkdir -p direct-only-project
-          unzip -q direct-only-v0.7-source.zip -d direct-only-project
+          unzip -q direct-only-v0.6-source.zip -d direct-only-project
           test -f direct-only-project/app/src/main/java/dev/directonly/Updater.java
           test -f direct-only-project/app/src/main/java/dev/directonly/HomeBudget.java
           test -f direct-only-project/app/src/main/java/dev/directonly/InstagramBlockService.java
           test -f direct-only-project/app/src/main/java/dev/directonly/InstagramDmNotifications.java
-          test -f direct-only-project/app/src/main/java/dev/directonly/ShortsBudget.java
-          test -f direct-only-project/app/src/main/java/dev/directonly/ReelsBudget.java
-          test -f direct-only-project/app/src/main/java/dev/directonly/ReelsActivity.java
           bash direct-only-project/scripts/test-url-policy.sh
           bash direct-only-project/scripts/test-shorts-signals.sh
           test -f direct-only-project/app/src/main/java/dev/directonly/ShortsSignals.java
           node --check direct-only-project/app/src/main/assets/direct_guard.js
           node --check direct-only-project/app/src/main/assets/reel_guard.js
-      - name: Set version 0.8.0
+      - name: Apply only the two requested changes and verify original UI
         shell: bash
         run: |
           set -euo pipefail
-          sed -i "s/versionCode 7/versionCode 8/" direct-only-project/app/build.gradle
-          sed -i "s/versionName '0.7.0'/versionName '0.8.0'/" direct-only-project/app/build.gradle
-          grep -q "versionCode 8" direct-only-project/app/build.gradle
-          grep -q "versionName '0.8.0'" direct-only-project/app/build.gradle
+          python3 scripts/apply-directonly-v09.py direct-only-project
+          grep -q "versionCode 9" direct-only-project/app/build.gradle
+          grep -q "versionName '0.9.0'" direct-only-project/app/build.gradle
+          grep -q "Home 25:00" direct-only-project/app/src/main/java/dev/directonly/MainActivity.java
+          test ! -e direct-only-project/app/src/main/java/dev/directonly/ReelsActivity.java
+          test ! -e direct-only-project/app/src/main/java/dev/directonly/ReelsBudget.java
+          javac -d /tmp/directonly-testclasses direct-only-project/app/src/main/java/dev/directonly/ShortsSignals.java
+          bash direct-only-project/scripts/test-url-policy.sh
+          bash direct-only-project/scripts/test-shorts-signals.sh
       - name: Restore stable Android signing key
         uses: actions/cache/restore@v4
         id: key_cache
         with:
           path: .directonly-signing
           key: directonly-personal-release-key-v1
-      - name: Require original v0.7 signing key
+      - name: Require original v0.8-compatible signing key
         shell: bash
         run: |
           set -euo pipefail
@@ -79,33 +81,33 @@ jobs:
           test -s "$apk"
           "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --verbose "$apk"
           mkdir -p dist
-          cp "$apk" dist/DirectOnly-S26-v0.8.0.apk
+          cp "$apk" dist/DirectOnly-S26-v0.9.0.apk
           sha256sum dist/*.apk | tee dist/SHA256.txt
-      - name: Prove signing certificate matches installed v0.7
+      - name: Prove signing certificate matches installed v0.8
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p /tmp/directonly-known-signature
-          gh release download directonly-v0.7.0 --repo "$GITHUB_REPOSITORY" \
-            --pattern DirectOnly-S26-v0.7.0.apk --dir /tmp/directonly-known-signature
+          gh release download directonly-v0.8.0 --repo "$GITHUB_REPOSITORY" \
+            --pattern DirectOnly-S26-v0.8.0.apk --dir /tmp/directonly-known-signature
           apk=direct-only-project/app/build/outputs/apk/release/app-release.apk
           signer="$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner"
-          existing=$("$signer" verify --print-certs /tmp/directonly-known-signature/DirectOnly-S26-v0.7.0.apk |
+          existing=$("$signer" verify --print-certs /tmp/directonly-known-signature/DirectOnly-S26-v0.8.0.apk |
             sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
           updated=$("$signer" verify --print-certs "$apk" |
             sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
           test -n "$existing"
           test "$existing" = "$updated" || {
-            echo "::error::Signing certificate mismatch with v0.7. Refusing to publish."
+            echo "::error::Signing certificate mismatch with v0.8. Refusing to publish."
             exit 1
           }
-          echo "Certificate matches published Direct Only v0.7: $updated"
+          echo "Certificate matches published Direct Only v0.8: $updated"
       - name: Upload signed APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: DirectOnly-S26-v0.8.0-signed-APK
+          name: DirectOnly-S26-v0.9.0-signed-APK
           path: dist/*
           if-no-files-found: error
       - name: Publish versioned GitHub Release for automatic updates
@@ -114,12 +116,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if gh release view directonly-v0.8.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if gh release view directonly-v0.9.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo 'Release exists; refusing to overwrite an existing signed APK.'
             exit 0
           fi
-          gh release create directonly-v0.8.0 dist/DirectOnly-S26-v0.8.0.apk \
+          gh release create directonly-v0.9.0 dist/DirectOnly-S26-v0.9.0.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title 'Direct Only v0.8.0' \
-            --notes 'v0.8 verifies its signing certificate against v0.7, fails closed when the original key is unavailable, and preserves all daily allowances, DM alerts and blocking features.'
+            --title 'Direct Only v0.9.0 — original interface restored' \
+            --notes 'Restores original v0.6 app layout and restrictions. Changes ONLY Home allowance from five to twenty-five minutes and YouTube Shorts limit from zero to ten openings per local day. Preserves Instagram DM alerts, app blocking and existing UI. Signed to update v0.7/v0.8.'
