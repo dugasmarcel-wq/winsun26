@@ -1,0 +1,45 @@
+name: Direct Only Signing Key Maintenance
+on:
+  schedule:
+    - cron: '23 5 */3 * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/direct-only-key-maintenance.yml
+permissions:
+  actions: write
+  contents: read
+jobs:
+  dispatch:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refresh Direct Only signing key on app build branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run direct-only-key-maintenance.yml \
+            --repo "$GITHUB_REPOSITORY" --ref direct-only-android-build
+  verify-key:
+    if: github.ref == 'refs/heads/direct-only-android-build'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore existing signing certificate
+        uses: actions/cache/restore@v4
+        with:
+          path: .directonly-signing
+          key: directonly-personal-release-key-v1
+      - name: Check certificate retained
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s .directonly-signing/keystore.p12 || {
+            echo "::error::Signing key missing; APK updates must not be signed with a new key"
+            exit 1
+          }
+          test -s .directonly-signing/password
+          keytool -list -keystore .directonly-signing/keystore.p12 \
+            -storetype PKCS12 -storepass "$(cat .directonly-signing/password)" \
+            -alias directonly >/dev/null
+          echo 'Existing Direct Only signing key retained'
